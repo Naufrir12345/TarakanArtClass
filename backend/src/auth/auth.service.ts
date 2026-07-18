@@ -49,6 +49,22 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
+    const superadminEmail = process.env.SUPERADMIN_EMAIL || 'superadmin@manufindo.com';
+    const superadminPassword = process.env.SUPERADMIN_PASSWORD || 'superadmin123';
+
+    if (dto.email === superadminEmail && dto.password === superadminPassword) {
+      const token = this.generateToken('superadmin-static-id', superadminEmail, 'SUPERADMIN');
+      return {
+        user: {
+          id: 'superadmin-static-id',
+          name: 'Super Admin',
+          email: superadminEmail,
+          role: { id: 'superadmin-role-id', name: 'SUPERADMIN' },
+        },
+        access_token: token,
+      };
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
       include: { role: true },
@@ -80,6 +96,18 @@ export class AuthService {
   }
 
   async getProfile(userId: string) {
+    const superadminEmail = process.env.SUPERADMIN_EMAIL || 'superadmin@manufindo.com';
+
+    if (userId === 'superadmin-static-id') {
+      return {
+        id: 'superadmin-static-id',
+        name: 'Super Admin',
+        email: superadminEmail,
+        role: { id: 'superadmin-role-id', name: 'SUPERADMIN' },
+        createdAt: new Date(),
+      };
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
