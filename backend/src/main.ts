@@ -6,7 +6,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   // Tambahkan baris ini tepat sebelum app.listen()
   app.enableCors({
-    origin: 'http://localhost:5173', // URL Frontend Anda
+    origin: ['https://tarakan-art-class-5012ersix-adhis-projects-8be2924d.vercel.app', 'http://localhost:5173'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
