@@ -2,6 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
   // Tulis langsung di sini, jangan ambil dari mana-mana dulu
+  // baseURL: 'http://localhost:3000' // Uncomment untuk testing local
   baseURL: 'https://tarakanartclass-production.up.railway.app'
 });
 

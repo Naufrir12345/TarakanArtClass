@@ -19,7 +19,8 @@ export default function ParentDashboard() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  // const baseURL = 'http://localhost:3000'; // local testing
+  const baseURL = import.meta.env.VITE_API_URL || 'https://tarakanartclass-production.up.railway.app';
 
   useEffect(() => {
     const parentToken = localStorage.getItem('parentToken');

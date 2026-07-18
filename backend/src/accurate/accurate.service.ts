@@ -13,7 +13,8 @@ export class AccurateService {
 
   getConnectUrl(): string {
     const clientId = process.env.ACCURATE_CLIENT_ID || 'mock_client_id';
-    const redirectUri = process.env.ACCURATE_REDIRECT_URI || 'http://localhost:3000/api/accurate/callback';
+    // const redirectUri = 'http://localhost:3000/api/accurate/callback'; // local testing
+    const redirectUri = process.env.ACCURATE_REDIRECT_URI || 'https://tarakanartclass-production.up.railway.app/api/accurate/callback';
     const scope = 'sales_invoice expense';
     
     // Accurate OAuth Auth URL
@@ -25,7 +26,8 @@ export class AccurateService {
   async handleCallback(code: string) {
     const clientId = process.env.ACCURATE_CLIENT_ID;
     const clientSecret = process.env.ACCURATE_CLIENT_SECRET;
-    const redirectUri = process.env.ACCURATE_REDIRECT_URI || 'http://localhost:3000/api/accurate/callback';
+    // const redirectUri = 'http://localhost:3000/api/accurate/callback'; // local testing
+    const redirectUri = process.env.ACCURATE_REDIRECT_URI || 'https://tarakanartclass-production.up.railway.app/api/accurate/callback';
 
     if (!clientId || !clientSecret) {
       this.logger.warn('Accurate client credentials not defined. Storing mock tokens.');

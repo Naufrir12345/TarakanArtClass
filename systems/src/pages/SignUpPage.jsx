@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 // import axios from 'axios';
-import api from '..src/api/axios';
+import api from '../api/axios';
 import { Lock, Mail, User, Loader2 } from 'lucide-react';
 
 export default function SignUpPage() {

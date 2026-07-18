@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 // import axios from 'axios';
-import api from '../axios';
+import api from '../../api/axios';
 import { Shield, Mail, Lock, AlertCircle, Sparkles } from 'lucide-react';
 
 export default function ParentLoginPage() {
@@ -17,7 +17,7 @@ export default function ParentLoginPage() {
     setError('');
 
     try {
-      // const url = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/parent/login`;
+      // const url = 'http://localhost:3000/api/parent/login';
       // const res = await axios.post(url, { email, password });
       const res = await api.post('/api/parent/login', { email, password });
 

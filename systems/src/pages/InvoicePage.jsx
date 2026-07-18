@@ -119,7 +119,9 @@ export default function InvoicePage() {
   };
 
   const handlePrintPdf = (id) => {
-    window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/export/invoice/${id}/pdf`, '_blank');
+    // const apiURL = 'http://localhost:3000'; // local testing
+    const apiURL = import.meta.env.VITE_API_URL || 'https://tarakanartclass-production.up.railway.app';
+    window.open(`${apiURL}/api/export/invoice/${id}/pdf`, '_blank');
   };
 
   const handleDeleteInvoice = async (id) => {
