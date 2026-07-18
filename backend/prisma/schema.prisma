@@ -1,0 +1,573 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 1. MODULE: AUTH & USER
+// ============================================
+model User {
+  id        String     @id @default(uuid())
+  email     String     @unique
+  name      String
+  password  String
+  role      Role       @relation(fields: [roleId], references: [id])
+  roleId    String
+  isActive  Boolean    @default(true)
+  salary    Float      @default(0)
+  createdAt DateTime   @default(now())
+  logs      AuditLog[]
+}
+
+model Role {
+  id          String       @id @default(uuid())
+  name        String       @unique // e.g., 'ADMIN', 'TEACHER', 'FINANCE'
+  permissions Permission[]
+  users       User[]
+}
+
+model Permission {
+  id     String @id @default(uuid())
+  action String @unique // e.g., 'CREATE_INVOICE', 'VIEW_REPORTS', 'EDIT_STUDENT'
+  roles  Role[]
+}
+
+// ============================================
+// 2. MODULE: STUDENT
+// ============================================
+model Student {
+  id                  String               @id @default(uuid())
+  namaAnak            String
+  umur                Int
+  namaOrtu            String
+  noHpOrtu            String
+  emailOrtu           String
+  instagram           String?
+  alamat              String?
+  enrollments         Enrollment[]
+  reports             Report[]
+  schedules           Schedule[]
+  extraClasses        ExtraClass[]
+  payments            Payment[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  tuitionFees         TuitionFee[]
+  feePayments         FeePayment[]
+  whatsappQueues      WhatsAppQueue[]
+  attendances         Attendance[]
+  holidayEnrollments  HolidayEnrollment[]
+  invoices            Invoice[]
+  parentAccount       ParentAccount?       @relation(fields: [parentAccountId], references: [id])
+  parentAccountId     String?
+  fingerprintData     FingerprintData[]
+
+  @@index([namaAnak])
+}
+
+// ============================================
+// 3. MODULE: CLASS & ENROLLMENT
+// ============================================
+model Class {
+  id           String       @id @default(uuid())
+  namaKelas    String
+  tipe         String // "Menggambar", "Bermain", "Bahasa Inggris", etc.
+  kategori     String       @default("REGULAR") // "REGULAR" | "EXTRA_CLASS"
+  harga        Decimal
+  maxCapacity  Int          @default(10)
+  description  String?
+  enrollments  Enrollment[]
+  schedules    Schedule[]
+  extraClasses ExtraClass[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  attendances  Attendance[]
+}
+
+model Enrollment {
+  id        String           @id @default(uuid())
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
+  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId   String
+  status    EnrollmentStatus @default(ACTIVE)
+  startDate DateTime         @default(now())
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+}
+
+// ============================================
+// 4. MODULE: SCHEDULE
+// ============================================
+model Schedule {
+  id           String         @id @default(uuid())
+  student      Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId    String
+  class        Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId      String
+  dayOfWeek    Int // 0=Minggu, 1=Senin, ..., 6=Sabtu
+  startTime    String // "09:00"
+  endTime      String // "10:00"
+  status       ScheduleStatus @default(ACTIVE)
+  replacements Replacement[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+enum ScheduleStatus {
+  ACTIVE
+  CANCELLED
+  RESCHEDULED
+}
+
+// ============================================
+// 5. MODULE: REPLACEMENT
+// ============================================
+model Replacement {
+  id              String            @id @default(uuid())
+  schedule        Schedule          @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  scheduleId      String
+  originalDate    DateTime
+  replacementDate DateTime?
+  newDayOfWeek    Int?
+  newStartTime    String?
+  newEndTime      String?
+  reason          String
+  status          ReplacementStatus @default(PENDING)
+  parentResponse  String?
+  notifiedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+enum ReplacementStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  AUTO_ASSIGNED
+}
+
+// ============================================
+// 6. MODULE: REPORT (RAPOR) - Smart Auto Grading
+// ============================================
+model Report {
+  id            String        @id @default(uuid())
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId     String
+  periode       String // "2026-Semester-1"
+  grades        ReportGrade[]
+  nilaiRataRata Float?
+  nilaiAbjad    String? // A, B, C, D, E
+  catatan       String?
+  credentialKey String        @unique
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model ReportGrade {
+  id         String  @id @default(uuid())
+  report     Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId   String
+  namaKelas  String
+  nilaiAngka Float
+  nilaiAbjad String
+  keterangan String?
+}
+
+// ============================================
+// 7. MODULE: PAYMENT (PEMBAYARAN)
+// ============================================
+model Payment {
+  id            String        @id @default(uuid())
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId     String
+  amount        Decimal
+  paymentMethod String // QRIS, CASH, TRANSFER
+  paymentType   String // REGISTRATION, MONTHLY, EXTRA_CLASS
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime?
+  dueDate       DateTime?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// ============================================
+// 8. MODULE: EXTRA CLASS
+// ============================================
+model ExtraClass {
+  id        String           @id @default(uuid())
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
+  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId   String
+  date      DateTime
+  startTime String
+  endTime   String
+  status    ExtraClassStatus @default(SCHEDULED)
+  notes     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+enum ExtraClassStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// 9. MODULE: AUDIT LOG
+// ============================================
+model AuditLog {
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  action      String
+  targetTable String
+  targetId    String?
+  details     String?
+  timestamp   DateTime @default(now())
+}
+
+model Attendance {
+  id        String           @id @default(uuid())
+  student   Student          @relation(fields: [studentId], references: [id])
+  studentId String
+  class     Class            @relation(fields: [classId], references: [id])
+  classId   String
+  date      DateTime         @default(now())
+  status    AttendanceStatus @default(PRESENT)
+  notes     String?
+
+  @@index([studentId, date])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  EXCUSED // Izin
+}
+
+model MonthlyStats {
+  id             String   @id @default(uuid())
+  month          Int // 1-12
+  year           Int
+  totalIncome    Decimal
+  newStudents    Int
+  attendanceRate Float // Persentase rata-rata kehadiran
+  updatedAt      DateTime @updatedAt
+
+  @@unique([month, year])
+}
+
+model Fee {
+  id        String   @id @default(uuid())
+  amount    Decimal // Jumlah biaya (misal: Rp 10.000)
+  name      String // Nama biaya (misal: "Registration Fee")
+  type      FeeType // Jenis biaya
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum FeeType {
+  REGISTRATION // Pendaftaran
+  MONTHLY // Bulanan
+  EXTRA_CLASS // Kelas Tambahan
+  OTHER // Lainnya
+}
+
+model Income {
+  id        String   @id @default(uuid())
+  amount    Decimal
+  category  String
+  note      String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Expense {
+  id        String   @id @default(uuid())
+  amount    Decimal
+  category  String
+  note      String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PaymentReminder {
+  id        String    @id @default(uuid())
+  studentId String
+  classId   String
+  amount    Decimal
+  dueDate   DateTime
+  type      String // 'MONTHLY', 'REGISTRATION', 'EXTRA_CLASS'
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model TuitionFee {
+  id         String        @id @default(uuid())
+  student    Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId  String
+  amount     Decimal
+  periodDate DateTime // Gunakan ini untuk filter bulanan
+  status     TuitionStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+
+  @@index([periodDate])
+  @@index([studentId])
+}
+
+enum TuitionStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model FeePayment {
+  id        String        @id @default(uuid())
+  student   Student       @relation(fields: [studentId], references: [id])
+  studentId String
+  amount    Decimal
+  month     Int
+  year      Int
+  status    TuitionStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+enum FeePaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model WhatsAppQueue {
+  id          String         @id @default(uuid())
+  phoneNumber String // Nomor tujuan
+  message     String // Isi pesan
+  status      WhatsAppStatus @default(PENDING)
+  scheduledAt DateTime // Kapan pesan harus dikirim
+  sentAt      DateTime? // Kapan pesan benar-benar terkirim
+  errorLog    String? // Jika gagal, simpan alasan error di sini
+  student     Student?       @relation(fields: [studentId], references: [id])
+  studentId   String? // Opsional jika pesan broadcast umum
+  retryCount  Int            @default(0)
+  createdAt   DateTime       @default(now())
+
+  @@index([status, scheduledAt])
+}
+
+enum WhatsAppStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// ============================================
+// 10. MODULE: INVENTORY (Alat Tulis / Produk)
+// ============================================
+model InventoryItem {
+  id          String         @id @default(uuid())
+  namaItem    String
+  kategori    String         // "Alat Tulis", "Buku", "Alat Gambar", "Lainnya"
+  hargaBeli   Decimal        // Harga modal / HPP
+  hargaJual   Decimal        // Harga jual ke customer
+  stok        Int            @default(0)
+  satuan      String         @default("pcs") // pcs, lusin, rim, dll
+  deskripsi   String?
+  isActive    Boolean        @default(true)
+  sales       InventorySale[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([kategori])
+}
+
+model InventorySale {
+  id          String        @id @default(uuid())
+  item        InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId      String
+  qty         Int
+  hargaJual   Decimal       // Snapshot harga saat terjual
+  totalHarga  Decimal       // qty * hargaJual
+  pembeli     String?       // Nama pembeli (opsional)
+  catatan     String?
+  incomeId    String?       // Foreign key ke Income (auto-created)
+  createdAt   DateTime      @default(now())
+
+  @@index([itemId])
+}
+
+// ============================================
+// 11. MODULE: HOLIDAY CLASS
+// ============================================
+model HolidayClass {
+  id              String              @id @default(uuid())
+  namaProgram     String              // "Summer Camp Drawing", "Holiday English Intensive"
+  deskripsi       String?
+  tanggalMulai    DateTime
+  tanggalSelesai  DateTime
+  harga           Decimal
+  maxCapacity     Int                 @default(15)
+  status          HolidayClassStatus  @default(UPCOMING)
+  enrollments     HolidayEnrollment[]
+  schedules       HolidaySchedule[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model HolidayEnrollment {
+  id              String           @id @default(uuid())
+  holidayClass    HolidayClass     @relation(fields: [holidayClassId], references: [id], onDelete: Cascade)
+  holidayClassId  String
+  student         Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId       String
+  status          EnrollmentStatus @default(ACTIVE)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([holidayClassId, studentId])
+}
+
+model HolidaySchedule {
+  id              String       @id @default(uuid())
+  holidayClass    HolidayClass @relation(fields: [holidayClassId], references: [id], onDelete: Cascade)
+  holidayClassId  String
+  date            DateTime
+  startTime       String       // "09:00"
+  endTime         String       // "12:00"
+  topic           String?      // Topik sesi hari itu
+  createdAt       DateTime     @default(now())
+}
+
+enum HolidayClassStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// 12. MODULE: INVOICE (Payment Gateway)
+// ============================================
+model Invoice {
+  id              String        @id @default(uuid())
+  invoiceNumber   String        @unique   // "INV-2026-0001"
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId       String
+  items           InvoiceItem[]
+  totalAmount     Decimal
+  status          InvoiceStatus @default(DRAFT)
+  dueDate         DateTime
+  paidAt          DateTime?
+  paymentGateway  String?       // "MIDTRANS", "MANUAL"
+  gatewayRef      String?       // Reference ID dari payment gateway
+  snapToken       String?       // Token untuk Midtrans Snap
+  snapUrl         String?       // URL redirect Midtrans
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid())
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId   String
+  description String
+  amount      Decimal
+  quantity    Int     @default(1)
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// ============================================
+// 13. MODULE: PARENT PORTAL
+// ============================================
+model ParentAccount {
+  id        String    @id @default(uuid())
+  name      String
+  email     String    @unique
+  password  String
+  phone     String
+  students  Student[]
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// ============================================
+// 14. MODULE: FINGERPRINT ATTENDANCE
+// ============================================
+model FingerprintData {
+  id            String   @id @default(uuid())
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId     String
+  templateData  String   // Fingerprint template (base64 encoded)
+  fingerIndex   String   @default("RIGHT_INDEX") // Jari mana
+  deviceEmployeeId String? // ID/No. Karyawan di mesin fingerprint (misal: "1001")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([deviceEmployeeId])
+}
+
+// ============================================
+// 15. MODULE: ACCURATE INTEGRATION
+// ============================================
+model AccurateSyncLog {
+  id          String           @id @default(uuid())
+  syncType    String           // "INVOICE", "EXPENSE", "INCOME"
+  referenceId String           // ID dari entity yang disync
+  status      AccurateSyncStatus @default(PENDING)
+  request     String?          // JSON request body
+  response    String?          // JSON response dari Accurate
+  errorLog    String?
+  syncedAt    DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([syncType, referenceId])
+}
+
+enum AccurateSyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
