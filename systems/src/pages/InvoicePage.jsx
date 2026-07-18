@@ -172,11 +172,10 @@ export default function InvoicePage() {
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${
-                  statusFilter === status
+                className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${statusFilter === status
                     ? 'bg-indigo-50 text-indigo-600 border-indigo-200'
                     : 'bg-white text-slate-650 border-slate-200 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 {status || 'Semua'}
               </button>
@@ -210,10 +209,10 @@ export default function InvoicePage() {
                     inv.status === 'PAID'
                       ? 'bg-emerald-50 text-emerald-700'
                       : inv.status === 'SENT'
-                      ? 'bg-blue-50 text-blue-700'
-                      : inv.status === 'OVERDUE'
-                      ? 'bg-red-50 text-red-700'
-                      : 'bg-slate-50 text-slate-700';
+                        ? 'bg-blue-50 text-blue-700'
+                        : inv.status === 'OVERDUE'
+                          ? 'bg-red-50 text-red-700'
+                          : 'bg-slate-50 text-slate-700';
 
                   return (
                     <tr key={inv.id} className="border-b border-slate-100 hover:bg-slate-50/50">
