@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+// import axios from 'axios';
+import api from '../axios';
 import { Shield, Mail, Lock, AlertCircle, Sparkles } from 'lucide-react';
 
 export default function ParentLoginPage() {
@@ -16,13 +17,14 @@ export default function ParentLoginPage() {
     setError('');
 
     try {
-      const url = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/parent/login`;
-      const res = await axios.post(url, { email, password });
-      
+      // const url = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/parent/login`;
+      // const res = await axios.post(url, { email, password });
+      const res = await api.post('/api/parent/login', { email, password });
+
       // Store token and parent data separate from admin auth
       localStorage.setItem('parentToken', res.data.access_token);
       localStorage.setItem('parentProfile', JSON.stringify(res.data.parent));
-      
+
       navigate('/parent/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Login gagal. Email atau password salah.');
@@ -36,9 +38,9 @@ export default function ParentLoginPage() {
       {/* Background neon glows */}
       <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-2xl opacity-20 animate-blob" />
       <div className="absolute bottom-0 -right-4 w-72 h-72 bg-indigo-500 rounded-full mix-blend-multiply filter blur-2xl opacity-20 animate-blob animation-delay-2000" />
-      
+
       <div className="max-w-md w-full bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 p-8 rounded-3xl shadow-2xl space-y-6 relative z-10">
-        
+
         {/* Brand */}
         <div className="text-center space-y-2">
           <div className="w-12 h-12 rounded-2xl bg-indigo-650 flex items-center justify-center mx-auto text-white shadow-lg shadow-indigo-500/20">

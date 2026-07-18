@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+// import axios from 'axios';
+import api from '../axios';
 import { Lock, Mail, User, Loader2 } from 'lucide-react';
 
 export default function SignUpPage() {
@@ -17,7 +18,7 @@ export default function SignUpPage() {
         setSubmitting(true);
         try {
             // Pastikan URL sesuai dengan backend Anda
-            await axios.post('http://localhost:3000/api/auth/register', {
+            await axios.post('/api/auth/register', {
                 name,
                 email,
                 password,
