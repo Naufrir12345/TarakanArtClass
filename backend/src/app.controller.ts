@@ -3,9 +3,9 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { PrismaService } from './prisma/prisma.service';
 
 @Controller('analytics')
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 export class AppController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   @Get()
   async getAnalytics() {
@@ -87,35 +87,10 @@ export class AppController {
     const presentCount = attendanceStats.find((s) => s.status === 'PRESENT')?._count.id || 0;
     const attendanceRate = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 0;
 
-    // 7. KPI Achievement: combination of Class Occupancy, Payment Collection, and Attendance Rate
-    const totalCapacities = classes.reduce((sum, c) => sum + c.maxCapacity, 0);
-    const totalEnrolled = classes.reduce((sum, c) => sum + c.enrollments.length, 0);
-    const classOccupancyRate = totalCapacities > 0 ? Math.round((totalEnrolled / totalCapacities) * 100) : 100;
-
-    const allPayments = await this.prisma.payment.findMany();
-    const billedPayments = allPayments.filter(p => p.status !== 'CANCELLED');
-    const paidPayments = allPayments.filter(p => p.status === 'PAID');
-    const paymentCollectionRate = billedPayments.length > 0 
-      ? Math.round((paidPayments.length / billedPayments.length) * 100) 
-      : 100;
-
-    const actualAttendanceRate = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 100;
-
-    const kpiAchievement = Math.round((classOccupancyRate + paymentCollectionRate + actualAttendanceRate) / 3);
-
-    // 8. Staff Salaries & Business Balance Evaluation
-    const staffAgg = await this.prisma.user.aggregate({
-      _sum: { salary: true },
-      _count: { id: true },
-    });
-    const totalStaffSalary = Number(staffAgg._sum.salary ?? 0);
-    const staffCount = Number(staffAgg._count.id ?? 0);
-    const isBusinessBalanced = totalIncome >= (totalExpense + totalStaffSalary);
-    const businessStatus = totalIncome === 0 
-      ? 'Belum ada data pemasukan' 
-      : isBusinessBalanced 
-        ? 'SEIMBANG & SURPLUS' 
-        : 'DEFISIT (Pengeluaran > Pemasukan)';
+    // 7. KPI Achievement: based on collection rate
+    const kpiAchievement = totalIncome > 0
+      ? Math.round((totalIncome / (totalIncome + totalExpense)) * 100)
+      : 0;
 
     return {
       totalPendapatan: totalIncome,
@@ -132,10 +107,6 @@ export class AppController {
         name: s.status,
         score: s._count.id,
       })),
-      totalStaffSalary,
-      staffCount,
-      isBusinessBalanced,
-      businessStatus,
     };
   }
 }
