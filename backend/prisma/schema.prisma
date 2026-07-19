@@ -519,15 +519,27 @@ enum InvoiceStatus {
 // 13. MODULE: PARENT PORTAL
 // ============================================
 model ParentAccount {
-  id        String    @id @default(uuid())
+  id        String          @id @default(uuid())
   name      String
-  email     String    @unique
+  email     String          @unique
   password  String
   phone     String
   students  Student[]
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  isActive  Boolean         @default(true)
+  messages  ParentMessage[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model ParentMessage {
+  id              String         @id @default(uuid())
+  parent          ParentAccount? @relation(fields: [parentAccountId], references: [id], onDelete: SetNull)
+  parentAccountId String?
+  parentName      String
+  parentPhone     String
+  message         String
+  isRead          Boolean        @default(false)
+  createdAt       DateTime       @default(now())
 }
 
 // ============================================

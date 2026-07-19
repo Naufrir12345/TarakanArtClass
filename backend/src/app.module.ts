@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { StudentsModule } from './students/students.module';
@@ -19,6 +19,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 
 // New Modules
 import { ActivityLogModule } from './activity-log/activity-log.module';
+import { AuditLogInterceptor } from './activity-log/audit-log.interceptor';
 import { RolesModule } from './roles/roles.module';
 import { RolesGuard } from './auth/roles.guard';
 import { HolidayClassModule } from './holiday-class/holiday-class.module';
@@ -58,6 +59,10 @@ import { AccurateModule } from './accurate/accurate.module';
   controllers: [AppController],
   providers: [
     AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditLogInterceptor,
+    },
   ],
 })
 export class AppModule { }

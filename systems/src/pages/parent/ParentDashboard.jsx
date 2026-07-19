@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, FileText, CreditCard, Clock, LogOut, Award, User, Sparkles, AlertCircle } from 'lucide-react';
+import { Calendar, FileText, CreditCard, Clock, LogOut, Award, User, Sparkles, AlertCircle, MessageSquare } from 'lucide-react';
 
 export default function ParentDashboard() {
   const [parent, setParent] = useState(null);
@@ -14,6 +14,9 @@ export default function ParentDashboard() {
   const [invoices, setInvoices] = useState([]);
   const [payments, setPayments] = useState([]);
   const [attendance, setAttendance] = useState([]);
+  
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -97,6 +100,27 @@ export default function ParentDashboard() {
       }
     } catch (err) {
       setError('Koneksi ke payment gateway gagal.');
+    }
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+
+    const token = localStorage.getItem('parentToken');
+    try {
+      setSendingMessage(true);
+      setError('');
+      await axios.post(`${baseURL}/api/parent/message`, { message: newMessage }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNewMessage('');
+      // Refresh profile to get updated list of messages
+      fetchParentProfile(token);
+    } catch (err) {
+      setError('Gagal mengirim pesan ke owner.');
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -186,6 +210,7 @@ export default function ParentDashboard() {
               { id: 'reports', name: 'Rapor Akademis', icon: FileText },
               { id: 'payments', name: 'Tagihan & Payment', icon: CreditCard },
               { id: 'attendance', name: 'Kehadiran', icon: Clock },
+              { id: 'messages', name: 'Hubungi Owner', icon: MessageSquare },
             ].map((tab) => {
               const Icon = tab.icon;
               return (
@@ -368,6 +393,69 @@ export default function ParentDashboard() {
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* 5. Messages Tab */}
+                {activeTab === 'messages' && (
+                  <div className="space-y-6">
+                    <h4 className="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">Hubungi Owner & Pengelola</h4>
+                    <p className="text-xs text-slate-550">Kirimkan masukan, pertanyaan, atau laporan langsung ke owner Tarakan Art Class. Pesan Anda akan langsung terintegrasi di dashboard pengelola.</p>
+
+                    <form onSubmit={handleSendMessage} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1">Tulis Pesan Anda</label>
+                        <textarea
+                          rows={4}
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          placeholder="Ketik pesan Anda di sini..."
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                          required
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={sendingMessage}
+                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all duration-200 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {sendingMessage ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Mengirim...
+                          </>
+                        ) : (
+                          'Kirim Pesan'
+                        )}
+                      </button>
+                    </form>
+
+                    <div className="space-y-3 pt-6 border-t border-slate-100">
+                      <h5 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Riwayat Pesan Anda</h5>
+                      {!parent?.messages || parent.messages.length === 0 ? (
+                        <p className="text-xs text-slate-400">Belum ada pesan yang Anda kirimkan.</p>
+                      ) : (
+                        <div className="space-y-3 max-h-72 overflow-y-auto">
+                          {parent.messages.map((msg) => (
+                            <div key={msg.id} className="bg-slate-50 p-4 border border-slate-100 rounded-xl space-y-2 text-xs">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-slate-450 font-semibold">
+                                  {new Date(msg.createdAt).toLocaleString('id-ID')}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[9px] ${
+                                  msg.isRead 
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                                    : 'bg-amber-50 text-amber-700 border border-amber-100'
+                                }`}>
+                                  {msg.isRead ? 'Dibaca' : 'Terkirim'}
+                                </span>
+                              </div>
+                              <p className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{msg.message}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </>

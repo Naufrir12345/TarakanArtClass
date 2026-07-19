@@ -80,4 +80,32 @@ export class ParentPortalController {
   adminRemove(@Param('id') id: string) {
     return this.parentService.adminRemove(id);
   }
+
+  // =====================================
+  // Parent Messages & Feedback (Admin & Parent)
+  // =====================================
+
+  @UseGuards(JwtAuthGuard)
+  @Post('parent/message')
+  createParentMessage(@Req() req: any, @Body() body: { message: string }) {
+    return this.parentService.createMessage(req.user.sub, body.message);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('parent-messages')
+  adminGetMessages() {
+    return this.parentService.adminGetMessages();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('parent-messages/unread-count')
+  adminGetUnreadCount() {
+    return this.parentService.adminGetUnreadCount();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('parent-messages/:id/read')
+  adminMarkAsRead(@Param('id') id: string) {
+    return this.parentService.adminMarkAsRead(id);
+  }
 }

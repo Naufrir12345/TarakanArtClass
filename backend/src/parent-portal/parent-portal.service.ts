@@ -53,6 +53,9 @@ export class ParentPortalService {
     const parent = await this.prisma.parentAccount.findUnique({
       where: { id: parentId },
       include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+        },
         students: {
           include: {
             enrollments: {
@@ -255,6 +258,59 @@ export class ParentPortalService {
 
     return this.prisma.parentAccount.delete({
       where: { id },
+    });
+  }
+
+  // ==========================
+  // Parent Messages & Feedback
+  // ==========================
+  async createMessage(parentId: string, messageText: string) {
+    const parent = await this.prisma.parentAccount.findUnique({
+      where: { id: parentId },
+    });
+
+    if (!parent) {
+      throw new NotFoundException('Akun orang tua tidak ditemukan');
+    }
+
+    return this.prisma.parentMessage.create({
+      data: {
+        parentAccountId: parentId,
+        parentName: parent.name,
+        parentPhone: parent.phone,
+        message: messageText,
+        isRead: false,
+      },
+    });
+  }
+
+  async adminGetMessages() {
+    return this.prisma.parentMessage.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        parent: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+  }
+
+  async adminGetUnreadCount() {
+    const count = await this.prisma.parentMessage.count({
+      where: { isRead: false },
+    });
+    return { count };
+  }
+
+  async adminMarkAsRead(messageId: string) {
+    return this.prisma.parentMessage.update({
+      where: { id: messageId },
+      data: { isRead: true },
     });
   }
 }

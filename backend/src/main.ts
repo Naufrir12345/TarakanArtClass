@@ -21,12 +21,14 @@ async function bootstrap() {
         return;
       }
       
-      const isAllowed = allowedOrigins.includes(origin) ||
-                        /\.vercel\.app$/.test(origin) ||
-                        origin.startsWith('http://localhost:') ||
-                        origin.startsWith('http://127.0.0.1:');
+      // Match localhost, 127.0.0.1, and local private network subnets (192.168.x.x, 10.x.x.x, 172.16.x.x - 172.31.x.x)
+      const isLocal = allowedOrigins.includes(origin) ||
+                      /\.vercel\.app$/.test(origin) ||
+                      origin.startsWith('http://localhost:') ||
+                      origin.startsWith('http://127.0.0.1:') ||
+                      /^http:\/\/(?:192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[0-1])\.\d+\.\d+)(?::\d+)?$/.test(origin);
       
-      if (isAllowed) {
+      if (isLocal) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));

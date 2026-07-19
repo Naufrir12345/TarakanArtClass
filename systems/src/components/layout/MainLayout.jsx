@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../api/axios';
 import {
   Users,
   GraduationCap,
@@ -22,7 +23,11 @@ import {
   Shield,
   Fingerprint,
   CloudLightning,
-  FileText
+  FileText,
+  Bell,
+  MessageSquare,
+  Check,
+  ExternalLink
 } from 'lucide-react';
 
 export default function MainLayout({ children }) {
@@ -31,6 +36,40 @@ export default function MainLayout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [messages, setMessages] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const countRes = await api.get('/api/parent-messages/unread-count');
+      setUnreadCount(countRes.data.count);
+
+      const msgsRes = await api.get('/api/parent-messages');
+      setMessages(msgsRes.data);
+    } catch (err) {
+      console.error('Failed to fetch parent messages:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      await api.patch(`/api/parent-messages/${id}/read`);
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to mark message as read:', err);
+    }
+  };
 
   const menuItems = [
     { name: 'Dashboard', path: '/', icon: Layers, group: 'Utama' },
@@ -234,7 +273,86 @@ export default function MainLayout({ children }) {
             <Menu size={20} />
           </button>
 
-          <div className="ml-auto flex items-center space-x-4">
+          <div className="ml-auto flex items-center space-x-4 relative">
+            {/* Notification Circular Button */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="w-10 h-10 rounded-full bg-slate-550 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 flex items-center justify-center transition-all relative border border-slate-200"
+                title="Pesan dari Orang Tua"
+              >
+                <MessageSquare size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Dropdown Panel */}
+              {showNotifications && (
+                <>
+                  {/* Overlay background to close dropdown when clicking outside */}
+                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+                  
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-50 text-left">
+                    <div className="p-4 border-b border-slate-150 flex items-center justify-between bg-indigo-50/50">
+                      <span className="font-extrabold text-sm text-slate-800">Pesan Orang Tua</span>
+                      <span className="text-[10px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-full border border-indigo-150">
+                        {unreadCount} Belum Dibaca
+                      </span>
+                    </div>
+
+                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                      {messages.length === 0 ? (
+                        <div className="p-6 text-center text-slate-400">
+                          <MessageSquare size={24} className="mx-auto mb-2 text-slate-350" />
+                          <p className="text-xs font-semibold">Tidak ada pesan masuk</p>
+                        </div>
+                      ) : (
+                        messages.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`p-3.5 hover:bg-slate-50 transition-colors flex flex-col gap-1.5 ${
+                              !msg.isRead ? 'bg-indigo-50/20 font-semibold' : ''
+                            }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="text-xs font-bold text-slate-800">{msg.parentName}</p>
+                                <p className="text-[10px] text-slate-400">{new Date(msg.createdAt).toLocaleString('id-ID')}</p>
+                              </div>
+                              <div className="flex gap-1.5 z-50">
+                                {!msg.isRead && (
+                                  <button
+                                    onClick={() => handleMarkAsRead(msg.id)}
+                                    className="p-1 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-md transition-colors"
+                                    title="Tandai Sudah Dibaca"
+                                  >
+                                    <Check size={14} />
+                                  </button>
+                                )}
+                                <a
+                                  href={`https://wa.me/${msg.parentPhone}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1 hover:bg-indigo-50 text-slate-450 hover:text-indigo-600 rounded-md transition-colors"
+                                  title="Balas via WhatsApp"
+                                >
+                                  <ExternalLink size={14} />
+                                </a>
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 uppercase">
               {user?.role?.name || 'Admin'} Panel
             </span>
