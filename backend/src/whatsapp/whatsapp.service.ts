@@ -100,7 +100,8 @@ export class WhatsappService {
       'Content-Type': 'application/json',
     };
     if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+      // Fonnte dan beberapa gateway lokal menggunakan token langsung tanpa prefiks Bearer
+      headers['Authorization'] = apiKey;
     }
 
     // Payload — format umum untuk API WhatsApp pihak ketiga
