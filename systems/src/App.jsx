@@ -27,6 +27,7 @@ import InvoicePage from './pages/InvoicePage';
 import FingerprintPage from './pages/FingerprintPage';
 import AccurateIntegrationPage from './pages/AccurateIntegrationPage';
 import StaffManagementPage from './pages/StaffManagementPage';
+import ParentAccountsPage from './pages/ParentAccountsPage';
 
 // Parent Portal Pages
 import ParentLoginPage from './pages/parent/ParentLoginPage';
@@ -128,6 +129,7 @@ function AppContent() {
                 <Route path="/fingerprint" element={<RoleRoute allowedRoles={['SUPERADMIN', 'ADMIN']}><FingerprintPage /></RoleRoute>} />
                 <Route path="/roles" element={<SuperAdminRoute><RoleManagementPage /></SuperAdminRoute>} />
                 <Route path="/staff" element={<SuperAdminRoute><StaffManagementPage /></SuperAdminRoute>} />
+                <Route path="/parent-accounts" element={<RoleRoute allowedRoles={['SUPERADMIN', 'ADMIN']}><ParentAccountsPage /></RoleRoute>} />
                 <Route path="/activity-log" element={<SuperAdminRoute><ActivityLogPage /></SuperAdminRoute>} />
                 <Route path="/accurate" element={<SuperAdminRoute><AccurateIntegrationPage /></SuperAdminRoute>} />
                 <Route path="/analytics" element={<RoleRoute allowedRoles={['SUPERADMIN', 'OWNER', 'ADMIN']}><Analytics /></RoleRoute>} />

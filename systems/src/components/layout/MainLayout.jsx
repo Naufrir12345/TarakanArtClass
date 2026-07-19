@@ -88,6 +88,7 @@ export default function MainLayout({ children }) {
     { name: 'Fingerprint Attendance', path: '/fingerprint', icon: Fingerprint, group: 'Otomasi', allowedRoles: ['SUPERADMIN', 'ADMIN'] },
     { name: 'Role Management', path: '/roles', icon: Shield, group: 'Pengaturan', allowedRoles: ['SUPERADMIN'] },
     { name: 'Manajemen Karyawan', path: '/staff', icon: Users, group: 'Pengaturan', allowedRoles: ['SUPERADMIN'] },
+    { name: 'Akun Orang Tua', path: '/parent-accounts', icon: Users, group: 'Pengaturan', allowedRoles: ['SUPERADMIN', 'ADMIN'] },
     { name: 'Log Aktivitas', path: '/activity-log', icon: FileText, group: 'Pengaturan', allowedRoles: ['SUPERADMIN'] },
     { name: 'Integrasi Accurate', path: '/accurate', icon: CloudLightning, group: 'Pengaturan', allowedRoles: ['SUPERADMIN'] },
   ];
