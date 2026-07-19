@@ -1,19 +1,44 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron } from '@nestjs/schedule';
+import { HttpService } from '@nestjs/axios'; // Axios wrapper
+import { ConfigService } from '@nestjs/config'; // env access
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class WhatsappService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private httpService: HttpService,
+    private configService: ConfigService,
+  ) {}
+
+  /**
+   * Sends a plain‑text WhatsApp message using the configured third‑party API.
+   */
+  async sendMessage(phoneNumber: string, message: string): Promise<void> {
+    const apiUrl = this.configService.get<string>('WHATSAPP_API_URL');
+    const apiKey = this.configService.get<string>('WHATSAPP_API_KEY');
+    if (!apiUrl) {
+      throw new InternalServerErrorException('WHATSAPP_API_URL not configured');
+    }
+    const payload = { to: phoneNumber, body: message };
+    const headers: Record<string, string> = {};
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+    try {
+      await firstValueFrom(this.httpService.post(apiUrl, payload, { headers }));
+    } catch (error) {
+      const errMsg = (error as any)?.response?.data?.message || (error as any).message || 'Unknown error';
+      throw new InternalServerErrorException(`WhatsApp send failed: ${errMsg}`);
+    }
+  }
 
   async getQueue() {
     return this.prisma.whatsAppQueue.findMany({
-      include: {
-        student: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -136,9 +161,7 @@ export class WhatsappService {
   }
 
   async processQueue() {
-    const pendingQueues = await this.prisma.whatsAppQueue.findMany({
-      where: { status: 'PENDING' },
-    });
+    const pendingQueues = await this.getQueue();
 
     let processedCount = 0;
     for (const queue of pendingQueues) {
@@ -147,12 +170,20 @@ export class WhatsappService {
           where: { id: queue.id },
           data: { status: 'FAILED', errorLog: 'Nomor telepon kosong.' },
         });
-      } else {
+        continue;
+      }
+      try {
+        await this.sendMessage(queue.phoneNumber, queue.message);
         await this.prisma.whatsAppQueue.update({
           where: { id: queue.id },
           data: { status: 'SENT', sentAt: new Date() },
         });
         processedCount++;
+      } catch (err) {
+        await this.prisma.whatsAppQueue.update({
+          where: { id: queue.id },
+          data: { status: 'FAILED', errorLog: (err as any).message },
+        });
       }
     }
 

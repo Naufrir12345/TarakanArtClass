@@ -13,6 +13,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { ExtraClassModule } from './extra-class/extra-class.module';
 import { FinanceModule } from './finance/finance.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { ConfigModule } from '@nestjs/config';
 import { InventoryModule } from './inventory/inventory.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -31,6 +32,7 @@ import { AccurateModule } from './accurate/accurate.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    ConfigModule.forRoot(),
     PrismaModule,
     AuthModule,
     StudentsModule,
