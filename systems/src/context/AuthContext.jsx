@@ -15,6 +15,8 @@ export const AuthProvider = ({ children }) => {
           const res = await api.get('/api/auth/profile');
           setUser(res.data);
         } catch (err) {
+          // Token invalid/expired/secret mismatch — bersihkan semua state
+          console.warn('Token tidak valid, melakukan logout otomatis.');
           localStorage.removeItem('token');
           setUser(null);
         }
@@ -26,26 +28,27 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      // Pastikan menggunakan 'res' (atau nama variabel yang sama di bawah)
       const res = await api.post('/api/auth/login', { email, password });
 
-      // Pastikan Anda menggunakan 'res.data', BUKAN 'response.data'
       if (res.data && res.data.access_token) {
         localStorage.setItem('token', res.data.access_token);
         setUser(res.data.user);
         return res.data;
+      } else {
+        throw new Error('Response tidak mengandung access_token');
       }
     } catch (err) {
-      // Pastikan di sini juga tidak memanggil 'response' yang salah
-      console.error("Login gagal:", err);
+      console.error('Login gagal:', err);
       throw err;
     }
   };
 
   const register = async (name, email, password) => {
     const res = await api.post('/api/auth/register', { name, email, password });
-    localStorage.setItem('token', res.data.access_token);
-    setUser(res.data.user);
+    if (res.data && res.data.access_token) {
+      localStorage.setItem('token', res.data.access_token);
+      setUser(res.data.user);
+    }
     return res.data;
   };
 
@@ -62,3 +65,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+

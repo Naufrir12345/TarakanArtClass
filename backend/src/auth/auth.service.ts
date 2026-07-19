@@ -69,8 +69,7 @@ export class AuthService {
       where: { email: dto.email },
       include: { role: true },
     });
-    console.log('User yang ditemukan di DB:', user);
-    console.log('Password yang dikirim dari frontend:', dto.password);
+
 
     if (!user) {
       throw new UnauthorizedException('Email atau password salah');
