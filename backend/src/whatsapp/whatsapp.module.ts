@@ -1,13 +1,20 @@
 import { Module } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios'; // added for HTTP calls
-import { ConfigModule } from '@nestjs/config'; // added for env config
+import { HttpModule } from '@nestjs/axios';
+import { ConfigModule } from '@nestjs/config';
 import { WhatsappController } from './whatsapp.controller';
 import { WhatsappService } from './whatsapp.service';
+import { ReminderService } from './reminder.service';
 
 @Module({
-  imports: [HttpModule, ConfigModule], // expose HttpService & ConfigService
+  imports: [
+    HttpModule.register({
+      timeout: 15000,    // 15 detik timeout default
+      maxRedirects: 3,
+    }),
+    ConfigModule,
+  ],
   controllers: [WhatsappController],
-  providers: [WhatsappService],
-  exports: [WhatsappService],
+  providers: [WhatsappService, ReminderService],
+  exports: [WhatsappService, ReminderService],
 })
 export class WhatsappModule {}
