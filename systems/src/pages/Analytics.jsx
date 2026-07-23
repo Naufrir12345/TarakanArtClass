@@ -71,12 +71,19 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [transactions, setTransactions] = useState([]);
+
   const fetchAnalytics = (sDate, eDate) => {
     setLoading(true);
     setError(null);
-    api.get(`/api/analytics?startDate=${sDate}&endDate=${eDate}`)
-      .then(res => {
-        setData(res.data);
+
+    Promise.all([
+      api.get(`/api/analytics?startDate=${sDate}&endDate=${eDate}`),
+      api.get('/api/finance/transactions').catch(() => ({ data: [] }))
+    ])
+      .then(([analyticsRes, txRes]) => {
+        setData(analyticsRes.data);
+        setTransactions(Array.isArray(txRes.data) ? txRes.data : []);
         setLoading(false);
       })
       .catch(err => {
@@ -160,13 +167,63 @@ export default function Analytics() {
 
   if (!data) return null;
 
+  // Build daily trend list for chart X-axis
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
+  const dailyMap = {};
+  const curr = new Date(start);
+  const monthsIndo = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+  while (curr <= end) {
+    const year = curr.getFullYear();
+    const month = String(curr.getMonth() + 1).padStart(2, '0');
+    const day = String(curr.getDate()).padStart(2, '0');
+    const key = `${year}-${month}-${day}`;
+    const displayLabel = `${day} ${monthsIndo[curr.getMonth()]}`;
+
+    dailyMap[key] = {
+      month: displayLabel,
+      dateKey: key,
+      Pendapatan: 0,
+      Pengeluaran: 0,
+      Profit: 0,
+    };
+
+    curr.setDate(curr.getDate() + 1);
+  }
+
+  if (transactions.length > 0) {
+    transactions.forEach((tx) => {
+      const txDate = new Date(tx.date);
+      const y = txDate.getFullYear();
+      const m = String(txDate.getMonth() + 1).padStart(2, '0');
+      const d = String(txDate.getDate()).padStart(2, '0');
+      const key = `${y}-${m}-${d}`;
+
+      if (dailyMap[key]) {
+        if (tx.type === 'income') {
+          dailyMap[key].Pendapatan += Number(tx.amount || 0);
+        } else if (tx.type === 'expense') {
+          dailyMap[key].Pengeluaran += Number(tx.amount || 0);
+        }
+        dailyMap[key].Profit = dailyMap[key].Pendapatan - dailyMap[key].Pengeluaran;
+      }
+    });
+  } else if (data.monthlyTrend && data.monthlyTrend.length > 0) {
+    data.monthlyTrend.forEach((item) => {
+      if (item.date && dailyMap[item.date]) {
+        dailyMap[item.date].Pendapatan = item.income;
+        dailyMap[item.date].Pengeluaran = item.expense;
+        dailyMap[item.date].Profit = item.profit;
+      }
+    });
+  }
+
+  const monthlyChartData = Object.values(dailyMap);
   const profit = (data.totalPendapatan || 0) - (data.totalPengeluaran || 0);
-  const monthlyChartData = (data.monthlyTrend || []).map(item => ({
-    month: item.period,
-    Pendapatan: item.income,
-    Pengeluaran: item.expense,
-    Profit: item.profit,
-  }));
 
   const classChartData = (data.classStats || []).slice(0, 8).map(c => ({
     name: c.namaKelas.length > 12 ? c.namaKelas.substring(0, 12) + '…' : c.namaKelas,
