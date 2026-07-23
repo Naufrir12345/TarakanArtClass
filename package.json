@@ -4,7 +4,8 @@
     "vite": "^5.0.0"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "cd backend && npm run build",
+    "start": "cd backend && npm run start:prod",
     "dev": "concurrently \"cd backend && npm run start:dev\" \"cd systems && npm run dev\""
   },
   "dependencies": {
