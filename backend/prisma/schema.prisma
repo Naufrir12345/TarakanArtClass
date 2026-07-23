@@ -121,8 +121,12 @@ model Schedule {
   endTime      String // "10:00"
   status       ScheduleStatus @default(ACTIVE)
   replacements Replacement[]
+  activeMonth  Int? // 1-12
+  activeYear   Int? // e.g. 2026
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+
+  @@index([activeMonth, activeYear])
 }
 
 enum ScheduleStatus {

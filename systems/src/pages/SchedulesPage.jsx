@@ -43,11 +43,13 @@ export default function SchedulesPage() {
   const [manualStartTime, setManualStartTime] = useState('09:00');
   const [manualEndTime, setManualEndTime] = useState('10:00');
 
-  const fetchData = async () => {
+  const fetchData = async (dateParam = currentDate) => {
     setLoading(true);
+    const m = dateParam.getMonth() + 1;
+    const y = dateParam.getFullYear();
     try {
       const [schedulesRes, replacementsRes, studentsRes, classesRes] = await Promise.all([
-        api.get('/api/schedules'),
+        api.get(`/api/schedules?month=${m}&year=${y}`),
         api.get('/api/schedules/replacements'),
         api.get('/api/students?limit=1000'),
         api.get('/api/classes'),
@@ -65,8 +67,41 @@ export default function SchedulesPage() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(currentDate);
+  }, [currentDate]);
+
+  const handleCopyFromPreviousMonth = async () => {
+    const targetMonth = currentDate.getMonth() + 1;
+    const targetYear = currentDate.getFullYear();
+    
+    // Calculate source month & year
+    let sourceMonth = targetMonth - 1;
+    let sourceYear = targetYear;
+    if (sourceMonth === 0) {
+      sourceMonth = 12;
+      sourceYear = targetYear - 1;
+    }
+
+    const prevMonthName = monthsLabel[sourceMonth - 1];
+    const currMonthName = monthsLabel[targetMonth - 1];
+
+    if (confirm(`Apakah Anda ingin menyalin seluruh jadwal les dari bulan ${prevMonthName} ${sourceYear} ke bulan ${currMonthName} ${targetYear}?`)) {
+      try {
+        setLoading(true);
+        const res = await api.post('/api/schedules/copy-month', {
+          sourceMonth,
+          sourceYear,
+          targetMonth,
+          targetYear,
+        });
+        alert(`✅ ${res.data.message}`);
+        fetchData(currentDate);
+      } catch (err) {
+        alert('Gagal menyalin jadwal: ' + (err.response?.data?.message || err.message));
+        setLoading(false);
+      }
+    }
+  };
 
   const handleOpenReplaceModal = async (schedule, dateStr = '') => {
     setSelectedSchedule(schedule);
@@ -206,11 +241,13 @@ export default function SchedulesPage() {
         startTime: newScheduleForm.startTime,
         endTime: newScheduleForm.endTime,
         dayOfWeek: dayDetailModal.date.getDay(),
+        activeMonth: currentDate.getMonth() + 1,
+        activeYear: currentDate.getFullYear(),
       });
       alert('Jadwal berhasil ditambahkan!');
       setNewScheduleForm({ studentId: '', classId: '', startTime: '09:00', endTime: '10:00' });
       setNewScheduleOpen(false);
-      const data = await fetchData();
+      const data = await fetchData(currentDate);
       if (data && dayDetailModal) {
         const day = dayDetailModal.date.getDay();
         const updated = data.schedules.filter(s => s.dayOfWeek === day && s.status === 'ACTIVE');
@@ -259,37 +296,73 @@ export default function SchedulesPage() {
   const calendarDays = getCalendarDays();
   const today = new Date();
 
-  const inputCls = 'w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all';
+  const inputCls = 'w-full px-4 py-2.5 rounded-2xl kid-input text-sm text-slate-800 font-semibold';
   const selectCls = `${inputCls} cursor-pointer`;
 
   return (
-    <div className="space-y-8 max-w-[1600px] mx-auto p-6 w-full">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Jadwal & Auto Replacement</h1>
-          <p className="text-slate-500 mt-1.5 text-sm md:text-base">Klik tanggal mana saja untuk menambah, mengedit, atau menghapus jadwal les.</p>
+    <div className="p-6 md:p-8 space-y-8 max-w-[1600px] mx-auto w-full">
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold text-yellow-300 uppercase tracking-wider mb-3">
+              🗓️ Perencanaan & Penyusunan Jadwal Bulanan
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Jadwal & Auto Replacement ⏰</h1>
+            <p className="text-blue-100 mt-2 text-base md:text-lg max-w-2xl">
+              Atur jadwal les anak per bulan. Admin dapat menyalin jadwal bulan lalu ke bulan baru dengan 1-klik!
+            </p>
+          </div>
+          <button onClick={() => fetchData(currentDate)} className="p-3.5 bg-white text-indigo-700 hover:bg-indigo-50 rounded-2xl transition-all shadow-md hover:scale-105 cursor-pointer self-start sm:self-center flex items-center gap-2 font-bold text-sm" title="Refresh Data">
+            <RefreshCw size={18} />
+            <span>Refresh</span>
+          </button>
         </div>
-        <button onClick={fetchData} className="p-3 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors shadow-sm cursor-pointer" title="Refresh Data">
-          <RefreshCw size={18} className="text-slate-500" />
-        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
         {/* Kalender Bulanan */}
-        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <CalendarIcon size={22} className="text-indigo-600" />
-              <span>Kalender Jadwal Les</span>
+        <div className="lg:col-span-2 kid-card border border-slate-200/80 rounded-3xl p-6 shadow-md space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+              <CalendarIcon size={24} className="text-indigo-600" />
+              <span>Kalender Les ({monthsLabel[currentDate.getMonth()]} {currentDate.getFullYear()})</span>
             </h2>
-            <div className="flex items-center gap-3">
-              <button onClick={handlePrevMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition-all cursor-pointer"><ChevronLeft size={20} /></button>
-              <span className="text-base font-bold text-slate-700 min-w-[150px] text-center">{monthsLabel[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
-              <button onClick={handleNextMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition-all cursor-pointer"><ChevronRight size={20} /></button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleCopyFromPreviousMonth}
+                className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-2xl text-xs font-black transition-all shadow-md hover:scale-105 flex items-center gap-1.5 cursor-pointer"
+                title="Salin semua jadwal dari bulan sebelumnya"
+              >
+                <span>📋 Salin dari Bulan Lalu</span>
+              </button>
+              <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl">
+                <button onClick={handlePrevMonth} className="p-1.5 hover:bg-white rounded-xl text-slate-600 transition-all cursor-pointer"><ChevronLeft size={18} /></button>
+                <span className="text-xs font-black text-slate-700 min-w-[110px] text-center">{monthsLabel[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
+                <button onClick={handleNextMonth} className="p-1.5 hover:bg-white rounded-xl text-slate-600 transition-all cursor-pointer"><ChevronRight size={18} /></button>
+              </div>
             </div>
           </div>
+
+          {schedules.length === 0 && !loading && (
+            <div className="p-5 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-900 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">💡</span>
+                <div>
+                  <div className="font-bold text-sm">Jadwal bulan {monthsLabel[currentDate.getMonth()]} {currentDate.getFullYear()} belum di-set</div>
+                  <div className="text-xs text-amber-700">Klik tombol "Salin dari Bulan Lalu" untuk menyalin jadwal secara instan, atau klik tanggal di kalender untuk menambah jadwal baru.</div>
+                </div>
+              </div>
+              <button
+                onClick={handleCopyFromPreviousMonth}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer shadow"
+              >
+                Salin Sekarang
+              </button>
+            </div>
+          )}
 
           <div className="border border-slate-100 rounded-xl overflow-hidden">
             {/* Header Hari */}

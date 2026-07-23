@@ -120,37 +120,53 @@ export default function RegistrationPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 p-6 md:p-8 w-full">
+    <div className="max-w-[1600px] mx-auto space-y-8 p-6 md:p-8 w-full">
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Registrasi Siswa Baru</h1>
-        <p className="text-slate-500 mt-2 text-base md:text-lg">Daftarkan anak dan tentukan kelas serta jadwal belajarnya</p>
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold text-yellow-300 uppercase tracking-wider mb-3">
+              ✨ Modul Pendaftaran Siswa
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Registrasi Siswa Baru 🎨</h1>
+            <p className="text-indigo-100 mt-2 text-base md:text-lg max-w-2xl">
+              Daftarkan anak dan pilih kelas serta jadwal les belajar kreatif dengan mudah
+            </p>
+          </div>
+        </div>
       </div>
 
       {successData && (
-        <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-start space-x-4">
-          <div className="p-2 rounded-xl bg-emerald-500 text-white shrink-0">
-            <CheckCircle2 size={24} />
+        <div className="p-8 rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 shadow-xl flex items-start space-x-5">
+          <div className="p-3 rounded-2xl bg-emerald-500 text-white shrink-0 shadow-lg shadow-emerald-200">
+            <CheckCircle2 size={32} />
           </div>
-          <div>
-            <h3 className="text-lg font-bold text-emerald-800">Registrasi Berhasil!</h3>
-            <p className="text-sm text-emerald-600 mt-1">
-              Siswa <strong>{successData.student.namaAnak}</strong> telah terdaftar.
+          <div className="flex-1">
+            <h3 className="text-2xl font-black text-emerald-900">Registrasi Berhasil! 🎉</h3>
+            <p className="text-base text-emerald-700 mt-1">
+              Siswa <strong>{successData.student.namaAnak}</strong> telah berhasil didaftarkan ke sistem les.
             </p>
-            <div className="mt-4 p-4 rounded-xl bg-white border border-emerald-100 space-y-2 text-sm text-slate-700">
-              <div><strong>ID Siswa:</strong> {successData.student.id}</div>
-              <div>
-                <strong>Tagihan Registrasi:</strong> Rp {Number(successData.payment.amount).toLocaleString('id-ID')}
+            <div className="mt-5 p-6 rounded-2xl bg-white border border-emerald-100 shadow-sm space-y-3 text-base text-slate-700">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="font-semibold text-slate-500">ID Siswa:</span>
+                <span className="font-mono font-bold text-indigo-600">{successData.student.id}</span>
               </div>
-              <div className="text-xs text-slate-400">
-                Gunakan invoice ini pada menu Pembayaran untuk melakukan pelunasan.
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-500">Total Tagihan Pendaftaran:</span>
+                <span className="text-xl font-black text-emerald-600">
+                  Rp {Number(successData.payment.amount).toLocaleString('id-ID')}
+                </span>
+              </div>
+              <div className="text-xs text-slate-400 italic pt-1">
+                📌 Catatan: Tagihan ini telah otomatis tersimpan di modul Pembayaran. Jika pembayaran dibatalkan (Cancel), data pendaftaran siswa baru akan dibersihkan otomatis.
               </div>
             </div>
             <button
               onClick={() => setSuccessData(null)}
-              className="mt-4 px-4 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all"
+              className="mt-6 px-6 py-3 text-base font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition-all shadow-md hover:scale-105"
             >
-              Registrasi Baru
+              + Registrasi Siswa Lain
             </button>
           </div>
         </div>
@@ -159,15 +175,21 @@ export default function RegistrationPage() {
       {!successData && (
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Section 1: Student & Parent Info */}
-          <div className="glass-card rounded-2xl p-8 space-y-6">
-            <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">
-              1. Informasi Siswa & Orang Tua
-            </h2>
+          <div className="kid-card rounded-3xl p-8 space-y-6 border border-slate-200/80 shadow-md">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-lg">
+                1
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-slate-800">Informasi Siswa & Orang Tua</h2>
+                <p className="text-xs text-slate-400">Lengkapi identitas anak dan kontak wali murid</p>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-base font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Nama Lengkap Anak
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                  Nama Lengkap Anak <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -175,14 +197,14 @@ export default function RegistrationPage() {
                   name="namaAnak"
                   value={studentInfo.namaAnak}
                   onChange={handleStudentChange}
-                  placeholder="Nama anak..."
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm"
+                  placeholder="Contoh: Budi Pratama"
+                  className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold"
                 />
               </div>
 
               <div>
-                <label className="block text-base font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Umur Anak
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                  Umur Anak (Tahun) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -190,16 +212,16 @@ export default function RegistrationPage() {
                   name="umur"
                   value={studentInfo.umur}
                   onChange={handleStudentChange}
-                  placeholder="Umur..."
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm"
+                  placeholder="Contoh: 7"
+                  className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label className="block text-base font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Nama Orang Tua / Wali
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                  Nama Orang Tua / Wali <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -207,14 +229,14 @@ export default function RegistrationPage() {
                   name="namaOrtu"
                   value={studentInfo.namaOrtu}
                   onChange={handleStudentChange}
-                  placeholder="Nama orang tua..."
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm"
+                  placeholder="Contoh: Ibu Rina"
+                  className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold"
                 />
               </div>
 
               <div>
-                <label className="block text-base font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  No. Handphone (WhatsApp)
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                  No. Handphone / WhatsApp <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -223,13 +245,13 @@ export default function RegistrationPage() {
                   value={studentInfo.noHpOrtu}
                   onChange={handleStudentChange}
                   placeholder="Contoh: 08123456789"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm"
+                  className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold"
                 />
               </div>
 
               <div>
-                <label className="block text-base font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Email Orang Tua
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                  Email Orang Tua <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="email"
@@ -237,16 +259,16 @@ export default function RegistrationPage() {
                   name="emailOrtu"
                   value={studentInfo.emailOrtu}
                   onChange={handleStudentChange}
-                  placeholder="Contoh: orangtua@gmail.com"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm"
+                  placeholder="orangtua@gmail.com"
+                  className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-base font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Instagram (Opsional)
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                  Instagram Orang Tua (Opsional)
                 </label>
                 <input
                   type="text"
@@ -254,12 +276,12 @@ export default function RegistrationPage() {
                   value={studentInfo.instagram}
                   onChange={handleStudentChange}
                   placeholder="@username"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm"
+                  className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold"
                 />
               </div>
 
               <div>
-                <label className="block text-base font-bold text-slate-700 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
                   Alamat Rumah (Opsional)
                 </label>
                 <input
@@ -267,60 +289,65 @@ export default function RegistrationPage() {
                   name="alamat"
                   value={studentInfo.alamat}
                   onChange={handleStudentChange}
-                  placeholder="Alamat rumah..."
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm"
+                  placeholder="Jl. Mawar No. 123..."
+                  className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold"
                 />
               </div>
             </div>
           </div>
 
           {/* Section 2: Class Schedules Enrollment */}
-          <div className="glass-card rounded-2xl p-8 space-y-6">
+          <div className="kid-card rounded-3xl p-8 space-y-6 border border-slate-200/80 shadow-md">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <h2 className="text-xl font-bold text-slate-800">
-                2. Pemilihan Kelas & Jadwal Rencana
-              </h2>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center font-black text-lg">
+                  2
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-800">Pemilihan Kelas & Jadwal Belajar</h2>
+                  <p className="text-xs text-slate-400">Pilih program les dan tentukan hari serta jam les anak</p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={addScheduleField}
-                className="flex items-center space-x-2 px-4 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all cursor-pointer"
+                className="flex items-center space-x-2 px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-2xl text-sm font-black transition-all shadow-md hover:scale-105 cursor-pointer"
               >
-                <Plus size={16} />
-                <span>Tambah Kelas</span>
+                <Plus size={18} />
+                <span>+ Tambah Kelas</span>
               </button>
             </div>
 
             <div className="space-y-5">
               {selectedSchedules.map((item, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-5 p-5 rounded-xl border border-slate-100 bg-slate-50/50 relative">
+                <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-5 p-6 rounded-2xl border-2 border-indigo-100/70 bg-gradient-to-br from-indigo-50/30 to-purple-50/20 relative kid-card">
                   <div>
-                    <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-2">
+                    <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">
                       Kelas Yang Dipilih
                     </label>
                     <select
                       required
                       value={item.classId}
                       onChange={(e) => handleScheduleChange(index, 'classId', e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm cursor-pointer"
+                      className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold cursor-pointer"
                     >
-                      <option value="">Pilih Kelas...</option>
+                      <option value="">Pilih Kelas Les...</option>
                       {classes.map(c => (
                         <option key={c.id} value={c.id}>
-                          {/* Sesuaikan c.name atau c.namaKelas dengan respon backend Anda */}
-                          {c.name || c.namaKelas} (Rp {Number(c.price || c.harga || 0).toLocaleString('id-ID')})
+                          {c.namaKelas || c.name} (Rp {Number(c.harga || c.price || 0).toLocaleString('id-ID')})
                         </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-2">
+                    <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">
                       Hari Belajar
                     </label>
                     <select
                       value={item.dayOfWeek}
                       onChange={(e) => handleScheduleChange(index, 'dayOfWeek', e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm cursor-pointer"
+                      className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold cursor-pointer"
                     >
                       {days.map(d => (
                         <option key={d.value} value={d.value}>{d.label}</option>
@@ -329,7 +356,7 @@ export default function RegistrationPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-2">
+                    <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">
                       Jam Mulai
                     </label>
                     <input
@@ -337,13 +364,13 @@ export default function RegistrationPage() {
                       required
                       value={item.startTime}
                       onChange={(e) => handleScheduleChange(index, 'startTime', e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm"
+                      className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold"
                     />
                   </div>
 
                   <div className="flex items-end justify-between space-x-2">
                     <div className="flex-1">
-                      <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-2">
+                      <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">
                         Jam Selesai
                       </label>
                       <input
@@ -351,7 +378,7 @@ export default function RegistrationPage() {
                         required
                         value={item.endTime}
                         onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:outline-none text-base text-slate-800 shadow-sm"
+                        className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold"
                       />
                     </div>
 
@@ -359,10 +386,10 @@ export default function RegistrationPage() {
                       <button
                         type="button"
                         onClick={() => removeScheduleField(index)}
-                        className="p-2 bg-white text-slate-400 hover:text-red-600 rounded-xl border border-slate-100 hover:border-red-100 hover:shadow-sm transition-all"
-                        title="Hapus Kelas"
+                        className="p-3 bg-white text-rose-400 hover:text-rose-600 rounded-2xl border border-rose-100 hover:border-rose-300 hover:bg-rose-50 transition-all shadow-sm"
+                        title="Hapus Baris Kelas"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={18} />
                       </button>
                     )}
                   </div>
@@ -372,14 +399,15 @@ export default function RegistrationPage() {
           </div>
 
           {/* Form Actions */}
-          <div className="flex items-center justify-end space-x-4 pt-2">
+          <div className="flex items-center justify-end space-x-4 pt-4">
             <button
               type="submit"
               disabled={loading || classes.length === 0}
-              className={`px-8 py-3.5 text-base font-bold rounded-xl transition-all ${classes.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer'
-                } text-white shadow-md shadow-indigo-100`}
+              className={`px-10 py-4 text-lg font-black rounded-2xl transition-all shadow-xl ${
+                classes.length === 0 ? 'bg-gray-400 cursor-not-allowed text-white' : 'kid-button-primary text-white cursor-pointer'
+              }`}
             >
-              {classes.length === 0 ? 'Memuat Kelas...' : 'Proses Registrasi Siswa'}
+              {classes.length === 0 ? 'Memuat Data Kelas...' : '🚀 Proses Pendaftaran Siswa Baru'}
             </button>
           </div>
         </form>

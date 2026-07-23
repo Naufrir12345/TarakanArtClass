@@ -11,14 +11,69 @@ export class SchedulesService {
     private whatsappService: WhatsappService,
   ) {}
 
-  async findAll() {
+  async findAll(month?: number, year?: number) {
+    const whereClause: any = {};
+    if (month && year) {
+      whereClause.OR = [
+        { activeMonth: Number(month), activeYear: Number(year) },
+        { activeMonth: null, activeYear: null },
+      ];
+    }
     return this.prisma.schedule.findMany({
+      where: whereClause,
       include: {
         student: true,
         class: true,
         replacements: true,
       },
     });
+  }
+
+  async copyMonth(sourceMonth: number, sourceYear: number, targetMonth: number, targetYear: number) {
+    const sourceSchedules = await this.prisma.schedule.findMany({
+      where: {
+        status: 'ACTIVE',
+        OR: [
+          { activeMonth: Number(sourceMonth), activeYear: Number(sourceYear) },
+          { activeMonth: null, activeYear: null },
+        ],
+      },
+    });
+
+    let copiedCount = 0;
+    for (const s of sourceSchedules) {
+      const existing = await this.prisma.schedule.findFirst({
+        where: {
+          studentId: s.studentId,
+          classId: s.classId,
+          dayOfWeek: s.dayOfWeek,
+          startTime: s.startTime,
+          activeMonth: Number(targetMonth),
+          activeYear: Number(targetYear),
+        },
+      });
+
+      if (!existing) {
+        await this.prisma.schedule.create({
+          data: {
+            studentId: s.studentId,
+            classId: s.classId,
+            dayOfWeek: s.dayOfWeek,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            activeMonth: Number(targetMonth),
+            activeYear: Number(targetYear),
+            status: 'ACTIVE',
+          },
+        });
+        copiedCount++;
+      }
+    }
+
+    return {
+      message: `Berhasil menyalin ${copiedCount} jadwal ke bulan ${targetMonth}/${targetYear}`,
+      count: copiedCount,
+    };
   }
 
   async findOne(id: string) {

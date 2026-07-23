@@ -36,14 +36,32 @@ export default function PaymentsPage() {
     fetchData();
   }, []);
 
-  const handleUpdateStatus = async (id, status) => {
-    if (confirm(`Tandai pembayaran ini sebagai ${status === 'PAID' ? 'Lunas / Terbayar' : 'Batal'}?`)) {
+  const handleUpdateStatus = async (payment, status) => {
+    let confirmMsg = `Tandai pembayaran ini sebagai ${status === 'PAID' ? 'Lunas' : 'Batal'}?`;
+    
+    if (status === 'PAID') {
+      confirmMsg = `Tandai pembayaran Rp ${Number(payment.amount).toLocaleString('id-ID')} (${payment.student?.namaAnak}) sebagai LUNAS?\n\nNominal ini akan otomatis tercatat sebagai Pemasukan di Modul Keuangan.`;
+    } else if (status === 'CANCELLED') {
+      if (payment.paymentType === 'REGISTRATION') {
+        confirmMsg = `⚠️ PERHATIAN SISWA BARU:\n\nMembatalkan pembayaran Registrasi ini akan MENGHAPUS data siswa "${payment.student?.namaAnak}" secara otomatis dari sistem (karena pendaftaran batal).\n\nApakah Anda yakin ingin melanjutkan pembatalan?`;
+      } else {
+        confirmMsg = `Batalkan tagihan ${payment.paymentType} untuk "${payment.student?.namaAnak}"?\n\nStatus tagihan akan menjadi CANCELLED. Data siswa tetap aktif dan tersimpan.`;
+      }
+    }
+
+    if (confirm(confirmMsg)) {
       try {
-        await api.patch(`/api/payments/${id}/status`, { status });
-        alert('Status pembayaran berhasil diperbarui');
+        const res = await api.patch(`/api/payments/${payment.id}/status`, { status });
+        if (status === 'PAID') {
+          alert('✅ Pembayaran berhasil ditandai LUNAS!\n💰 Nominal telah otomatis tercatat ke Modul Keuangan.');
+        } else if (status === 'CANCELLED' && payment.paymentType === 'REGISTRATION') {
+          alert(res.data.message || 'Pembayaran dibatalkan dan data siswa baru telah dibersihkan.');
+        } else {
+          alert('Status pembayaran berhasil diperbarui.');
+        }
         fetchData();
       } catch (err) {
-        alert('Gagal memperbarui status');
+        alert('Gagal memperbarui status: ' + (err.response?.data?.message || err.message));
       }
     }
   };
@@ -76,73 +94,89 @@ export default function PaymentsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Modul Pembayaran</h1>
-          <p className="text-slate-500 mt-1">Kelola transaksi, cetak tagihan & input pelunasan siswa</p>
+    <div className="p-6 md:p-8 space-y-8 max-w-[1600px] mx-auto w-full">
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold text-yellow-300 uppercase tracking-wider mb-3">
+              💳 Keuangan & Tagihan Siswa
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Modul Pembayaran 💵</h1>
+            <p className="text-emerald-100 mt-2 text-base md:text-lg max-w-2xl">
+              Kelola transaksi les, cetak invoice tagihan, dan catat pelunasan siswa (otomatis terhubung dengan Keuangan)
+            </p>
+          </div>
+          <button
+            onClick={() => setInvoiceModalOpen(true)}
+            className="flex items-center justify-center space-x-2 px-6 py-3.5 bg-white text-emerald-800 hover:bg-emerald-50 font-black rounded-2xl transition-all shadow-lg hover:scale-105 self-start sm:self-center cursor-pointer"
+          >
+            <Plus size={20} />
+            <span>+ Buat Invoice Manual</span>
+          </button>
         </div>
-        <button
-          onClick={() => setInvoiceModalOpen(true)}
-          className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all shadow-md shadow-indigo-100 self-start"
-        >
-          <Plus size={18} />
-          <span>Buat Invoice Manual</span>
-        </button>
       </div>
 
       {/* Payments Table */}
-      <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
+      <div className="kid-card rounded-3xl overflow-hidden shadow-md border border-slate-200/80">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/50">
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Siswa</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Tipe Tagihan</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Nominal</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Metode</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Jatuh Tempo</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Aksi</th>
+              <tr className="border-b border-slate-100 bg-slate-50/80">
+                <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-wider">Nama Siswa</th>
+                <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-wider">Tipe Tagihan</th>
+                <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-wider">Nominal (Rp)</th>
+                <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-wider">Metode Bayar</th>
+                <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-wider">Jatuh Tempo</th>
+                <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-wider text-right">Aksi Pelunasan</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 font-semibold text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-10 text-center">
+                  <td colSpan="7" className="px-6 py-12 text-center">
                     <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
                   </td>
                 </tr>
               ) : payments.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-10 text-center text-slate-400">
-                    Belum ada data transaksi/pembayaran.
+                  <td colSpan="7" className="px-6 py-12 text-center text-slate-400 italic">
+                    Belum ada data transaksi atau pembayaran.
                   </td>
                 </tr>
               ) : (
                 payments.map((p) => {
                   const isPending = p.status === 'PENDING';
                   const isPaid = p.status === 'PAID';
+                  const isReg = p.paymentType === 'REGISTRATION';
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4 font-semibold text-slate-800">{p.student.namaAnak}</td>
-                      <td className="px-6 py-4 text-slate-600 text-xs font-bold uppercase">{p.paymentType}</td>
-                      <td className="px-6 py-4 text-slate-800 font-mono font-semibold">
+                    <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors">
+                      <td className="px-6 py-4 font-bold text-slate-800">
+                        {p.student?.namaAnak || 'Siswa Hapus'}
+                        {isReg && <span className="ml-2 text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-extrabold">Siswa Baru</span>}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600 text-xs font-black uppercase">
+                        <span className={`px-2.5 py-1 rounded-xl border ${isReg ? 'bg-purple-50 text-purple-700 border-purple-100' : p.paymentType === 'MONTHLY' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+                          {p.paymentType}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-900 font-mono font-black text-base">
                         Rp {Number(p.amount).toLocaleString('id-ID')}
                       </td>
-                      <td className="px-6 py-4 text-slate-600">{p.paymentMethod}</td>
+                      <td className="px-6 py-4 text-slate-600 font-bold">{p.paymentMethod}</td>
                       <td className="px-6 py-4 text-slate-500 text-sm">
-                        {p.dueDate ? new Date(p.dueDate).toLocaleDateString('id-ID') : '-'}
+                        {p.dueDate ? new Date(p.dueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          className={`text-xs font-black px-3 py-1 rounded-full ${
                             isPaid
-                              ? 'bg-emerald-50 text-emerald-600'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                               : p.status === 'CANCELLED'
-                              ? 'bg-red-50 text-red-600'
-                              : 'bg-amber-50 text-amber-600'
+                              ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
                           }`}
                         >
                           {p.status}
@@ -152,18 +186,20 @@ export default function PaymentsPage() {
                         {isPending && (
                           <div className="flex items-center justify-end space-x-2">
                             <button
-                              onClick={() => handleUpdateStatus(p.id, 'CANCELLED')}
-                              className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                              title="Batalkan Invoice"
+                              onClick={() => handleUpdateStatus(p, 'CANCELLED')}
+                              className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 font-bold text-xs transition-all flex items-center gap-1 border border-rose-100 cursor-pointer"
+                              title="Batalkan Tagihan"
                             >
                               <X size={14} />
+                              <span>Cancel</span>
                             </button>
                             <button
-                              onClick={() => handleUpdateStatus(p.id, 'PAID')}
-                              className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                              onClick={() => handleUpdateStatus(p, 'PAID')}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center gap-1 shadow-sm cursor-pointer"
                               title="Tandai Lunas"
                             >
                               <Check size={14} />
+                              <span>Paid & Auto-Income</span>
                             </button>
                           </div>
                         )}

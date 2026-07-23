@@ -19,11 +19,54 @@
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.05), 0 8px 10px -6px rgba(99, 102, 241, 0.03);
+}
+
+/* Kids Theme - Colorful Hover Effects & Micro-Interactions */
+.kid-card {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.kid-card:hover {
+  transform: translateY(-3px) scale(1.008);
+  border-color: rgba(129, 140, 248, 0.6);
+  box-shadow: 0 14px 30px -5px rgba(99, 102, 241, 0.15), 0 8px 15px -6px rgba(244, 114, 182, 0.12);
+}
+
+.kid-input {
+  transition: all 0.25s ease-in-out;
+  background-color: #ffffff;
+  border: 1.5px solid #e2e8f0;
+}
+
+.kid-input:hover {
+  border-color: #a5b4fc;
+  background-color: #faf5ff;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.08);
+}
+
+.kid-input:focus {
+  border-color: #6366f1;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+  outline: none;
+}
+
+.kid-button-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+  background-size: 200% 200%;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.kid-button-primary:hover {
+  background-position: right center;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4), 0 4px 10px -2px rgba(236, 72, 153, 0.3);
 }
 
 /* Print Styles for Reports */

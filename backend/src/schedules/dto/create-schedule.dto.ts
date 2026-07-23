@@ -21,4 +21,7 @@ export class CreateScheduleDto {
   @IsString()
   @IsNotEmpty()
   endTime: string;
+
+  activeMonth?: number;
+  activeYear?: number;
 }

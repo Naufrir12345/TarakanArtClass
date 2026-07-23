@@ -51,7 +51,22 @@ export class PaymentsService {
 
   async updateStatus(id: string, status: PaymentStatus) {
     const payment = await this.findOne(id);
-    
+    const oldStatus = payment.status;
+
+    // If cancelled registration payment, delete the student (which cascades to enrollments, schedules, payments, etc.)
+    if (status === 'CANCELLED' && payment.paymentType === 'REGISTRATION') {
+      const studentName = payment.student?.namaAnak || 'Siswa';
+      // Delete the student record
+      await this.prisma.student.delete({
+        where: { id: payment.studentId },
+      });
+      return {
+        id,
+        status: 'CANCELLED',
+        message: `Pendaftaran siswa ${studentName} dibatalkan dan data siswa telah dihapus otomatis.`,
+      };
+    }
+
     const updatedPayment = await this.prisma.payment.update({
       where: { id },
       data: {
@@ -63,17 +78,24 @@ export class PaymentsService {
       },
     });
 
-    if (status === 'CANCELLED' && payment.paymentType === 'REGISTRATION') {
-      await this.prisma.$transaction([
-        this.prisma.enrollment.updateMany({
-          where: { studentId: payment.studentId },
-          data: { status: 'INACTIVE' },
-        }),
-        this.prisma.schedule.updateMany({
-          where: { studentId: payment.studentId },
-          data: { status: 'CANCELLED' },
-        }),
-      ]);
+    // Integrated with Finance Module: Create Income record when marked as PAID (and was not already PAID)
+    if (status === 'PAID' && oldStatus !== 'PAID') {
+      const categoryMap: Record<string, string> = {
+        REGISTRATION: 'Pembayaran Registrasi',
+        MONTHLY: 'Pembayaran SPP Bulanan',
+        EXTRA_CLASS: 'Pembayaran Extra Class',
+      };
+      const category = categoryMap[payment.paymentType] || 'Pembayaran Les';
+      const studentName = updatedPayment.student?.namaAnak || 'Siswa';
+
+      await this.prisma.income.create({
+        data: {
+          amount: updatedPayment.amount,
+          category,
+          note: `Pembayaran ${category} - ${studentName}`,
+          date: new Date(),
+        },
+      });
     }
 
     return updatedPayment;

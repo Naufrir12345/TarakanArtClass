@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { SchedulesService } from './schedules.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { CreateReplacementDto } from './dto/create-replacement.dto';
@@ -10,8 +10,22 @@ export class SchedulesController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll() {
-    return this.schedulesService.findAll();
+  findAll(
+    @Query('month') month?: number,
+    @Query('year') year?: number,
+  ) {
+    return this.schedulesService.findAll(month, year);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('copy-month')
+  copyMonth(
+    @Body('sourceMonth') sourceMonth: number,
+    @Body('sourceYear') sourceYear: number,
+    @Body('targetMonth') targetMonth: number,
+    @Body('targetYear') targetYear: number,
+  ) {
+    return this.schedulesService.copyMonth(sourceMonth, sourceYear, targetMonth, targetYear);
   }
 
   @UseGuards(JwtAuthGuard)

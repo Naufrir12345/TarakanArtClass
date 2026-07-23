@@ -58,7 +58,7 @@ export class RegistrationService {
         });
         enrollments.push(enrollment);
 
-        // Create schedule
+        const now = new Date();
         const newSchedule = await tx.schedule.create({
           data: {
             studentId: student.id,
@@ -66,6 +66,8 @@ export class RegistrationService {
             dayOfWeek: schedule.dayOfWeek,
             startTime: schedule.startTime,
             endTime: schedule.endTime,
+            activeMonth: now.getMonth() + 1,
+            activeYear: now.getFullYear(),
             status: 'ACTIVE',
           },
         });
