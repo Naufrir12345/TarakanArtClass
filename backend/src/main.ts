@@ -1,7 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { execSync } from 'child_process';
 
 async function bootstrap() {
+  try {
+    console.log('Syncing database schema via Prisma...');
+    execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+    console.log('Database schema synced successfully.');
+  } catch (err: any) {
+    console.error('Prisma db push warning:', err?.message || err);
+  }
+
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
   const allowedOrigins = [
