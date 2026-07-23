@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import {
   Fingerprint, CheckCircle, AlertCircle, RefreshCw, Smartphone, Play, Search,
-  Trash2, Volume2, ShieldCheck, Cpu, UserCheck, Check, Sparkles, Monitor
+  Trash2, Volume2, ShieldCheck, Cpu, UserCheck, Check, Sparkles, Monitor, Users, Briefcase
 } from 'lucide-react';
 
 export default function FingerprintPage() {
   const [activeTab, setActiveTab] = useState('MOBILE_KIOSK'); // 'MOBILE_KIOSK' | 'ADMIN_REGISTRATION' | 'HARDWARE_PUSH' | 'TODAY_LOGS'
+  const [targetType, setTargetType] = useState('STAFF'); // 'STAFF' | 'STUDENT'
+  
+  const [staff, setStaff] = useState([]);
   const [students, setStudents] = useState([]);
   const [registeredList, setRegisteredList] = useState([]);
   const [attendance, setAttendance] = useState([]);
@@ -20,7 +23,7 @@ export default function FingerprintPage() {
   const [deviceEmployeeIdInput, setDeviceEmployeeIdInput] = useState('');
 
   // Mobile Kiosk / Biometric State
-  const [kioskStudentId, setKioskStudentId] = useState('');
+  const [kioskTargetId, setKioskTargetId] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
 
@@ -37,15 +40,18 @@ export default function FingerprintPage() {
       setLoading(true);
       const kioskRes = await api.get('/api/fingerprint/public-kiosk-data').catch(() => null);
       if (kioskRes && kioskRes.data) {
+        setStaff(kioskRes.data.staff || []);
         setStudents(kioskRes.data.students || []);
         setAttendance(kioskRes.data.attendance || []);
       } else {
-        const [studentRes, attendanceRes] = await Promise.all([
-          api.get('/api/students'),
-          api.get('/api/fingerprint/attendance/today'),
+        const [studentRes, attendanceRes, staffRes] = await Promise.all([
+          api.get('/api/students').catch(() => ({ data: [] })),
+          api.get('/api/fingerprint/attendance/today').catch(() => ({ data: [] })),
+          api.get('/api/roles/users').catch(() => ({ data: [] })),
         ]);
-        setStudents(studentRes.data);
-        setAttendance(attendanceRes.data);
+        setStudents(studentRes.data || []);
+        setAttendance(attendanceRes.data || []);
+        setStaff(staffRes.data || []);
       }
 
       const regRes = await api.get('/api/fingerprint/registered-list').catch(() => ({ data: [] }));
@@ -124,69 +130,69 @@ export default function FingerprintPage() {
     }
   };
 
-  // Native Smartphone Biometric Verification (WebAuthn) or Touch Simulation
-  const handleMobileBiometricScan = async (studentIdToVerify) => {
-    const targetStudentId = studentIdToVerify || kioskStudentId;
-    if (!targetStudentId) {
-      setError('Pilih siswa terlebih dahulu untuk scan sidik jari HP.');
+  // Native Smartphone Biometric Verification (WebAuthn) or Touch Simulation for Staff / Students
+  const handleMobileBiometricScan = async (overrideId) => {
+    const activeId = overrideId || kioskTargetId;
+    if (!activeId) {
+      setError(`Pilih ${targetType === 'STAFF' ? 'Karyawan / Staf' : 'Siswa'} terlebih dahulu untuk scan sidik jari HP.`);
       return;
     }
-
-    const student = students.find((s) => s.id === targetStudentId);
-    if (!student) return;
 
     setIsScanning(true);
     setError('');
     setSuccess('');
     setScanResult(null);
 
-    // Try native WebAuthn (Smartphone Fingerprint/Face Sensor) if supported
-    let useWebAuthn = false;
-    if (window.PublicKeyCredential && typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-      try {
-        const available = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-        if (available) {
-          useWebAuthn = true;
-        }
-      } catch (e) {
-        useWebAuthn = false;
-      }
-    }
-
-    // Trigger visual scan delay
     setTimeout(async () => {
       try {
-        const fpRes = await api.get(`/api/fingerprint/student/${targetStudentId}`);
-        let templateToUse = '';
+        if (targetType === 'STAFF') {
+          // Verify Staff Attendance
+          const res = await api.post('/api/fingerprint/verify-staff', { userId: activeId });
+          setIsScanning(false);
+          setScanResult(res.data);
+          playSuccessChime();
 
-        if (fpRes.data && fpRes.data.length > 0) {
-          templateToUse = fpRes.data[0].templateData;
+          if (res.data.status === 'SUCCESS') {
+            const msg = `Hadir! Terima kasih ${res.data.staff?.name}, presensi masuk staf berhasil dicatat.`;
+            setSuccess(msg);
+            speakText(msg);
+          } else if (res.data.status === 'ALREADY_MARKED') {
+            const msg = `Karyawan ${res.data.staff?.name} sudah presensi masuk hari ini.`;
+            setSuccess(msg);
+            speakText(msg);
+          }
         } else {
-          // Auto-generate temporary template for testing HP scan if not registered yet
-          templateToUse = `FINGERPRINT_TEMPLATE_B64_${targetStudentId.substring(0, 8)}_MOBILE_HP`;
-          await api.post(`/api/fingerprint/register/${targetStudentId}`, {
+          // Verify Student Attendance
+          const fpRes = await api.get(`/api/fingerprint/student/${activeId}`).catch(() => ({ data: [] }));
+          let templateToUse = '';
+
+          if (fpRes.data && fpRes.data.length > 0) {
+            templateToUse = fpRes.data[0].templateData;
+          } else {
+            templateToUse = `FINGERPRINT_TEMPLATE_B64_${activeId.substring(0, 8)}_MOBILE_HP`;
+            await api.post(`/api/fingerprint/register/${activeId}`, {
+              templateData: templateToUse,
+              fingerIndex: 'MOBILE_HP_SCANNER',
+            });
+          }
+
+          const tapRes = await api.post('/api/fingerprint/verify', {
             templateData: templateToUse,
-            fingerIndex: 'MOBILE_HP_SCANNER',
           });
-        }
 
-        // Verify with backend
-        const tapRes = await api.post('/api/fingerprint/verify', {
-          templateData: templateToUse,
-        });
+          setIsScanning(false);
+          setScanResult(tapRes.data);
+          playSuccessChime();
 
-        setIsScanning(false);
-        setScanResult(tapRes.data);
-        playSuccessChime();
-
-        if (tapRes.data.status === 'SUCCESS') {
-          const msg = `Hadir! Terima kasih ${tapRes.data.student.namaAnak}, presensi kelas ${tapRes.data.class.namaKelas} berhasil dicatat.`;
-          setSuccess(msg);
-          speakText(msg);
-        } else if (tapRes.data.status === 'ALREADY_MARKED') {
-          const msg = `Siswa ${tapRes.data.student.namaAnak} sudah absen hari ini.`;
-          setSuccess(msg);
-          speakText(msg);
+          if (tapRes.data.status === 'SUCCESS') {
+            const msg = `Hadir! Terima kasih ${tapRes.data.student?.namaAnak}, presensi kelas ${tapRes.data.class?.namaKelas || ''} berhasil dicatat.`;
+            setSuccess(msg);
+            speakText(msg);
+          } else if (tapRes.data.status === 'ALREADY_MARKED') {
+            const msg = `Siswa ${tapRes.data.student?.namaAnak} sudah absen hari ini.`;
+            setSuccess(msg);
+            speakText(msg);
+          }
         }
 
         fetchData();
@@ -214,7 +220,7 @@ export default function FingerprintPage() {
       if (res.data.status === 'SUCCESS') {
         setSuccess(`[HARDWARE PUSH BERHASIL] ${res.data.message}`);
         playSuccessChime();
-        speakText(`Absensi mesin fingerprint ${res.data.student.namaAnak} berhasil.`);
+        speakText(`Absensi mesin fingerprint berhasil.`);
       } else {
         setSuccess(`[LOG MESIN RECEIVED] ${res.data.message}`);
       }
@@ -236,7 +242,7 @@ export default function FingerprintPage() {
     }
   };
 
-  if (loading && students.length === 0) {
+  if (loading && staff.length === 0 && students.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
@@ -252,11 +258,11 @@ export default function FingerprintPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold text-yellow-300 uppercase tracking-wider mb-3">
-              📱 Biometric Mobile & Hardware Terminal
+              📱 Biometric Mobile & Staff Attendance Terminal
             </div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Presensi Sidik Jari (Fingerprint) 👆</h1>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Presensi Karyawan & Sidik Jari (HP Demo) 👆</h1>
             <p className="text-indigo-100 mt-2 text-base max-w-2xl">
-              Uji kelayakan absensi via Handphone (Smartphone Biometric API) & integrasi terminal mesin hardware
+              Uji kelayakan absensi Karyawan & Guru via Handphone (Smartphone Biometric API) & terminal mesin sidik jari.
             </p>
           </div>
 
@@ -344,37 +350,76 @@ export default function FingerprintPage() {
         </button>
       </div>
 
-      {/* TAB 1: MOBILE KIOSK SCANNER DEMO (HP BIOMETRIC API) */}
+      {/* TAB 1: MOBILE KIOSK SCANNER DEMO (HP BIOMETRIC API FOR STAFF / EMPLOYEES) */}
       {activeTab === 'MOBILE_KIOSK' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left / Main: Touch & Biometric Scanner Panel */}
           <div className="lg:col-span-7 bg-white p-8 rounded-3xl border border-slate-200/80 shadow-md space-y-6 text-center flex flex-col justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-extrabold uppercase tracking-wider mb-2">
-                <Sparkles size={14} /> WebAuthn / Sensor Biometrik HP Ready
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-extrabold uppercase tracking-wider mb-3">
+                <Sparkles size={14} /> WebAuthn / Sensor Biometrik Karyawan HP Ready
               </div>
-              <h2 className="text-2xl font-black text-slate-800">Terminal Absensi Handphone (Mobile Scanner Kiosk)</h2>
+              <h2 className="text-2xl font-black text-slate-800">Terminal Presensi Karyawan & Staf</h2>
               <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                Gunakan sensor fingerprint bawaan HP (Touch ID / Fingerprint Sensor) atau sentuh tombol scan untuk uji coba presensi siswa.
+                Gunakan sensor fingerprint bawaan HP (Touch ID / Fingerprint Sensor) atau sentuh tombol scan untuk presensi masuk karyawan.
               </p>
+
+              {/* Target Type Selector Toggle */}
+              <div className="flex justify-center gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setTargetType('STAFF');
+                    setKioskTargetId('');
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                    targetType === 'STAFF'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <Briefcase size={16} />
+                  <span>Karyawan / Staf ({staff.length})</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setTargetType('STUDENT');
+                    setKioskTargetId('');
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                    targetType === 'STUDENT'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <Users size={16} />
+                  <span>Siswa ({students.length})</span>
+                </button>
+              </div>
             </div>
 
-            {/* Student Selection for HP Scan */}
+            {/* Target Selection Dropdown */}
             <div className="max-w-md mx-auto w-full text-left space-y-2">
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-                Pilih Nama Siswa yang Ingin Absen:
+                Pilih Nama {targetType === 'STAFF' ? 'Karyawan / Staf' : 'Siswa'}:
               </label>
               <select
-                value={kioskStudentId}
-                onChange={(e) => setKioskStudentId(e.target.value)}
+                value={kioskTargetId}
+                onChange={(e) => setKioskTargetId(e.target.value)}
                 className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold cursor-pointer"
               >
-                <option value="">-- Pilih Siswa --</option>
-                {students.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.namaAnak} ({s.namaOrtu})
-                  </option>
-                ))}
+                <option value="">-- Pilih {targetType === 'STAFF' ? 'Karyawan / Staf' : 'Siswa'} --</option>
+                {targetType === 'STAFF'
+                  ? staff.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.role?.name || 'Staf'})
+                      </option>
+                    ))
+                  : students.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.namaAnak} ({s.namaOrtu})
+                      </option>
+                    ))}
               </select>
             </div>
 
@@ -390,7 +435,6 @@ export default function FingerprintPage() {
                     : 'bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 text-white hover:scale-105 hover:shadow-indigo-300'
                 }`}
               >
-                {/* Glowing Outer Ring */}
                 <div className="absolute -inset-3 rounded-full bg-gradient-to-r from-indigo-500 to-pink-500 opacity-30 blur-lg animate-pulse" />
                 <Fingerprint size={72} className={`relative z-10 ${isScanning ? 'animate-bounce' : ''}`} />
                 <span className="relative z-10 text-xs font-black uppercase tracking-widest mt-2">
@@ -404,39 +448,55 @@ export default function FingerprintPage() {
               <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 text-left space-y-2 shadow-sm animate-fadeIn">
                 <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
                   <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1">
-                    <CheckCircle size={16} /> Status Presensi
+                    <CheckCircle size={16} /> Status Presensi {scanResult.staff ? 'Karyawan' : 'Siswa'}
                   </span>
                   <span className="text-xs font-mono font-bold text-emerald-800">{new Date().toLocaleTimeString('id-ID')}</span>
                 </div>
-                <h4 className="text-xl font-black text-emerald-950">{scanResult.student?.namaAnak}</h4>
+                <h4 className="text-xl font-black text-emerald-950">
+                  {scanResult.staff?.name || scanResult.student?.namaAnak}
+                </h4>
                 <p className="text-sm text-emerald-800 font-semibold">
-                  Program Kelas: <strong>{scanResult.class?.namaKelas || 'Reguler'}</strong>
+                  {scanResult.staff ? `Jabatan: ${scanResult.staff.role?.name || 'Staf'}` : `Program Kelas: ${scanResult.class?.namaKelas || 'Reguler'}`}
                 </p>
                 <div className="text-xs text-emerald-600 pt-1 italic">
-                  🔊 Suara konfirmasi kehadiran otomatis dibunyikan melalui speaker HP/perangkat.
+                  🔊 Suara konfirmasi kehadiran karyawan otomatis dibunyikan via HP.
                 </div>
               </div>
             )}
 
-            {/* Direct Quick Tap Buttons for Fast Testing */}
+            {/* Quick Tap Buttons */}
             <div className="pt-4 border-t border-slate-100 text-left">
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-                ⚡ Tombol Uji Coba Cepat Presensi Murid:
+                ⚡ Tombol Presensi Cepat Karyawan:
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-48 overflow-y-auto pr-1">
-                {students.map((student) => (
-                  <button
-                    key={student.id}
-                    onClick={() => {
-                      setKioskStudentId(student.id);
-                      handleMobileBiometricScan(student.id);
-                    }}
-                    className="p-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-2xl text-left transition-all group cursor-pointer"
-                  >
-                    <p className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 truncate">{student.namaAnak}</p>
-                    <p className="text-[10px] text-slate-400">Tap Scan HP 👆</p>
-                  </button>
-                ))}
+                {targetType === 'STAFF'
+                  ? staff.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setKioskTargetId(item.id);
+                          handleMobileBiometricScan(item.id);
+                        }}
+                        className="p-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-2xl text-left transition-all group cursor-pointer"
+                      >
+                        <p className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 truncate">{item.name}</p>
+                        <p className="text-[10px] text-indigo-600 font-semibold">{item.role?.name || 'Staf'} • Tap HP 👆</p>
+                      </button>
+                    ))
+                  : students.map((student) => (
+                      <button
+                        key={student.id}
+                        onClick={() => {
+                          setKioskTargetId(student.id);
+                          handleMobileBiometricScan(student.id);
+                        }}
+                        className="p-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-2xl text-left transition-all group cursor-pointer"
+                      >
+                        <p className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 truncate">{student.namaAnak}</p>
+                        <p className="text-[10px] text-slate-400">Tap Scan HP 👆</p>
+                      </button>
+                    ))}
               </div>
             </div>
           </div>
@@ -447,17 +507,17 @@ export default function FingerprintPage() {
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-md space-y-4">
               <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
                 <ShieldCheck size={20} className="text-indigo-600" />
-                Panduan Uji Kelayakan Biometrik HP
+                Panduan Presensi Karyawan via HP
               </h3>
               <ul className="text-xs text-slate-600 space-y-2.5 list-disc pl-4 leading-relaxed">
                 <li>
-                  <strong>HP / Smartphone Scanner</strong>: Buka web ini dari browser HP (Android Chrome / iPhone Safari) lalu tekan tombol <em>Sentuh Jari di HP</em>.
+                  <strong>Buka Link HP Karyawan</strong>: Karyawan / Guru cukup membuka link web dari browser HP masing-masing saat tiba di tempat les.
                 </li>
                 <li>
-                  <strong>WebAuthn Integration</strong>: Sistem mendukung sensor sidik jari bawaan HP tanpa perlu install aplikasi tambahan.
+                  <strong>Sensor Fingerprint HP</strong>: Cukup pilih nama Karyawan lalu sentuh tombol fingerprint pada layar HP.
                 </li>
                 <li>
-                  <strong>Tersambung ke Database Live</strong>: Setiap kali presensi dari HP berhasil, data kehadiran murid langsung tercatat di PostgreSQL Railway & tercantum pada Laporan Kehadiran.
+                  <strong>Tercatat Otomatis</strong>: Jam masuk & data karyawan tersimpan langsung di database PostgreSQL Railway.
                 </li>
               </ul>
             </div>
@@ -467,7 +527,7 @@ export default function FingerprintPage() {
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
                   <UserCheck size={20} className="text-emerald-600" />
-                  Presensi Hari Ini ({attendance.length})
+                  Presensi Masuk Hari Ini ({attendance.length})
                 </h3>
                 <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">LIVE LOGS</span>
               </div>
@@ -476,9 +536,10 @@ export default function FingerprintPage() {
                 {attendance.map((att) => (
                   <div key={att.id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
                     <div>
-                      <p className="font-bold text-slate-800 text-sm">{att.student?.namaAnak}</p>
-                      <p className="text-slate-500">{att.class?.namaKelas || 'Kelas Reguler'}</p>
-                      <span className="text-[10px] text-slate-400">{att.notes || 'Absen HP'}</span>
+                      <p className="font-bold text-slate-800 text-sm">
+                        {att.student?.namaAnak || att.notes?.replace('Presensi ', '') || 'Karyawan / Staf'}
+                      </p>
+                      <p className="text-slate-500">{att.class?.namaKelas || 'Kehadiran Karyawan'}</p>
                     </div>
                     <div className="text-right">
                       <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[10px] uppercase">
@@ -492,7 +553,7 @@ export default function FingerprintPage() {
                 ))}
 
                 {attendance.length === 0 && (
-                  <p className="text-xs text-slate-400 text-center py-6">Belum ada murid yang absen hari ini.</p>
+                  <p className="text-xs text-slate-400 text-center py-6">Belum ada karyawan / murid yang absen hari ini.</p>
                 )}
               </div>
             </div>
@@ -509,8 +570,8 @@ export default function FingerprintPage() {
                 <Fingerprint size={24} />
               </div>
               <div>
-                <h3 className="font-bold text-lg text-slate-800">Registrasi Sidik Jari Murid</h3>
-                <p className="text-xs text-slate-400">Daftarkan pola jari murid dan hubungkan ke ID Mesin Hardware</p>
+                <h3 className="font-bold text-lg text-slate-800">Registrasi Sidik Jari Murid / Staf</h3>
+                <p className="text-xs text-slate-400">Daftarkan pola jari dan hubungkan ke ID Mesin Hardware</p>
               </div>
             </div>
 
@@ -587,7 +648,7 @@ export default function FingerprintPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase">
-                    <th className="p-3">Siswa</th>
+                    <th className="p-3">Siswa / Staf</th>
                     <th className="p-3">Jari</th>
                     <th className="p-3">ID Mesin Device</th>
                     <th className="p-3 text-right">Aksi</th>
@@ -618,7 +679,7 @@ export default function FingerprintPage() {
                   {registeredList.length === 0 && (
                     <tr>
                       <td colSpan={4} className="p-8 text-center text-slate-400">
-                        Belum ada sidik jari murid yang didaftarkan.
+                        Belum ada sidik jari terdaftar.
                       </td>
                     </tr>
                   )}
@@ -698,8 +759,8 @@ export default function FingerprintPage() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase">
                   <th className="p-4">Waktu Presensi</th>
-                  <th className="p-4">Nama Siswa</th>
-                  <th className="p-4">Kelas</th>
+                  <th className="p-4">Nama</th>
+                  <th className="p-4">Tipe / Kelas</th>
                   <th className="p-4">Status</th>
                   <th className="p-4">Keterangan / Sensor</th>
                 </tr>
@@ -710,8 +771,10 @@ export default function FingerprintPage() {
                     <td className="p-4 font-mono text-slate-600 text-xs">
                       {new Date(att.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </td>
-                    <td className="p-4 font-bold text-slate-800">{att.student?.namaAnak}</td>
-                    <td className="p-4 text-slate-600 font-semibold">{att.class?.namaKelas || 'Reguler'}</td>
+                    <td className="p-4 font-bold text-slate-800">
+                      {att.student?.namaAnak || att.notes?.replace('Presensi ', '') || 'Karyawan / Staf'}
+                    </td>
+                    <td className="p-4 text-slate-600 font-semibold">{att.class?.namaKelas || 'Karyawan / Staf'}</td>
                     <td className="p-4">
                       <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-black text-xs uppercase">
                         {att.status}
@@ -724,7 +787,7 @@ export default function FingerprintPage() {
                 {attendance.length === 0 && (
                   <tr>
                     <td colSpan={5} className="p-12 text-center text-slate-400 font-semibold">
-                      Belum ada siswa yang melakukan presensi hari ini.
+                      Belum ada karyawan / siswa yang melakukan presensi hari ini.
                     </td>
                   </tr>
                 )}

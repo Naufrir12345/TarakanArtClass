@@ -57,6 +57,11 @@ export class FingerprintController {
     return this.fingerprintService.getPublicKioskData();
   }
 
+  @Post('verify-staff')
+  verifyStaff(@Body('userId') userId: string) {
+    return this.fingerprintService.verifyStaff(userId);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('registered-list')
   getRegisteredList() {

@@ -345,7 +345,17 @@ export class FingerprintService {
   }
 
   async getPublicKioskData() {
-    const [students, attendance] = await Promise.all([
+    const [staff, students, attendance] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: { select: { name: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
       this.prisma.student.findMany({
         select: {
           id: true,
@@ -357,6 +367,61 @@ export class FingerprintService {
       this.getTodayAttendance(),
     ]);
 
-    return { students, attendance };
+    return { staff, students, attendance };
+  }
+
+  async verifyStaff(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Karyawan / Staf tidak ditemukan.');
+    }
+
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+
+    // Check if staff already checked in today
+    const existingLog = await this.prisma.attendance.findFirst({
+      where: {
+        notes: { contains: `Karyawan:${user.id}` },
+        date: { gte: startOfDay, lte: endOfDay },
+      },
+    });
+
+    if (existingLog) {
+      return {
+        status: 'ALREADY_MARKED',
+        message: `Karyawan ${user.name} (${user.role?.name || 'Staf'}) sudah presensi masuk hari ini.`,
+        staff: user,
+        attendance: existingLog,
+      };
+    }
+
+    const firstClass = await this.prisma.class.findFirst();
+
+    const attendanceData: any = {
+      status: 'PRESENT',
+      notes: `Presensi Karyawan:${user.id} - ${user.name} (${user.role?.name || 'Staf'}) via Biometrik HP`,
+      date: today,
+    };
+
+    if (firstClass) {
+      attendanceData.classId = firstClass.id;
+    }
+
+    const attendance = await this.prisma.attendance.create({
+      data: attendanceData,
+    });
+
+    return {
+      status: 'SUCCESS',
+      message: `Presensi Karyawan ${user.name} (${user.role?.name || 'Staf'}) berhasil dicatat!`,
+      staff: user,
+      attendance,
+    };
   }
 }
