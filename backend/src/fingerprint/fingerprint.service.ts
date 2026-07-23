@@ -343,4 +343,20 @@ export class FingerprintService {
       },
     });
   }
+
+  async getPublicKioskData() {
+    const [students, attendance] = await Promise.all([
+      this.prisma.student.findMany({
+        select: {
+          id: true,
+          namaAnak: true,
+          namaOrtu: true,
+        },
+        orderBy: { namaAnak: 'asc' },
+      }),
+      this.getTodayAttendance(),
+    ]);
+
+    return { students, attendance };
+  }
 }

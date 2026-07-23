@@ -52,6 +52,11 @@ export class FingerprintController {
     );
   }
 
+  @Get('public-kiosk-data')
+  getPublicKioskData() {
+    return this.fingerprintService.getPublicKioskData();
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('registered-list')
   getRegisteredList() {

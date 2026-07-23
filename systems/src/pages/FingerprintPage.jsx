@@ -35,14 +35,21 @@ export default function FingerprintPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [studentRes, attendanceRes, regRes] = await Promise.all([
-        api.get('/api/students'),
-        api.get('/api/fingerprint/attendance/today'),
-        api.get('/api/fingerprint/registered-list').catch(() => ({ data: [] })),
-      ]);
-      setStudents(studentRes.data);
-      setAttendance(attendanceRes.data);
-      setRegisteredList(regRes.data);
+      const kioskRes = await api.get('/api/fingerprint/public-kiosk-data').catch(() => null);
+      if (kioskRes && kioskRes.data) {
+        setStudents(kioskRes.data.students || []);
+        setAttendance(kioskRes.data.attendance || []);
+      } else {
+        const [studentRes, attendanceRes] = await Promise.all([
+          api.get('/api/students'),
+          api.get('/api/fingerprint/attendance/today'),
+        ]);
+        setStudents(studentRes.data);
+        setAttendance(attendanceRes.data);
+      }
+
+      const regRes = await api.get('/api/fingerprint/registered-list').catch(() => ({ data: [] }));
+      setRegisteredList(regRes.data || []);
       setLoading(false);
     } catch (err) {
       setError('Gagal memuat data presensi sidik jari.');

@@ -97,6 +97,9 @@ function AppContent() {
       {/* Public Page for Parents (No Login required, accessed with unique Credential Key code) */}
       <Route path="/rapor-anak" element={<ReportPublicPage />} />
 
+      {/* Public Mobile Fingerprint Attendance Kiosk (No Login required for HP Scanner Demo) */}
+      <Route path="/fingerprint-attendance" element={<FingerprintPage />} />
+
       {/* Parent Portal Routes */}
       <Route path="/parent/login" element={<ParentLoginPage />} />
       <Route path="/parent/dashboard" element={<ParentDashboard />} />
