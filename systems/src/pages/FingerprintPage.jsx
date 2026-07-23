@@ -115,19 +115,50 @@ export default function FingerprintPage() {
     const targetId = registrationTargetType === 'STAFF' ? selectedStaffId : selectedStudentId;
     if (!targetId) return;
 
-    // Generate template
-    const simulatedB64 = `FINGERPRINT_TEMPLATE_B64_${targetId.substring(0, 8)}_${Math.random().toString(36).substring(2, 10)}`;
+    let templateToUse = `FINGERPRINT_TEMPLATE_B64_${targetId.substring(0, 8)}_${Math.random().toString(36).substring(2, 10)}`;
+
+    // Optional: Try registering WebAuthn Passkey on device if supported
+    if (window.PublicKeyCredential && navigator.credentials && navigator.credentials.create) {
+      try {
+        const challengeBytes = new Uint8Array(32);
+        window.crypto.getRandomValues(challengeBytes);
+        const userIdBytes = new TextEncoder().encode(targetId.substring(0, 16));
+
+        const credential = await navigator.credentials.create({
+          publicKey: {
+            challenge: challengeBytes,
+            rp: { name: 'Tarakan Art Class' },
+            user: {
+              id: userIdBytes,
+              name: targetId,
+              displayName: registrationTargetType === 'STAFF' ? 'Staff Member' : 'Student',
+            },
+            pubKeyCredParams: [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
+            authenticatorSelection: { userVerification: 'preferred' },
+            timeout: 30000,
+          },
+        }).catch(() => null);
+
+        if (credential && credential.rawId) {
+          const rawIdB64 = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+          localStorage.setItem(`webauthn_cred_${targetId}`, rawIdB64);
+          templateToUse = `WEBAUTHN_PASSKEY_${rawIdB64.substring(0, 20)}`;
+        }
+      } catch (e) {
+        console.log('Passkey creation optional:', e);
+      }
+    }
 
     try {
       const endpoint = registrationTargetType === 'STAFF' ?
         `/api/fingerprint/register-staff/${targetId}` :
         `/api/fingerprint/register/${targetId}`;
       await api.post(endpoint, {
-        templateData: simulatedB64,
+        templateData: templateToUse,
         fingerIndex,
         deviceEmployeeId: deviceEmployeeIdInput || undefined,
       });
-      setSuccess('Sidik jari berhasil diregistrasi ke sistem!');
+      setSuccess('Sidik jari / Biometrik HP berhasil diregistrasi ke sistem!');
       if (registrationTargetType === 'STAFF') setSelectedStaffId(''); else setSelectedStudentId('');
       setDeviceEmployeeIdInput('');
       fetchData();
@@ -149,21 +180,24 @@ export default function FingerprintPage() {
     setSuccess('');
     setScanResult(null);
 
-    // 1. Synchronously trigger Android / iOS Native Fingerprint Prompt if available
-    if (window.PublicKeyCredential && navigator.credentials && navigator.credentials.get) {
+    // 1. Only trigger WebAuthn prompt IF a passkey credential ID was stored for this user on this device
+    const storedCredId = localStorage.getItem(`webauthn_cred_${activeId}`);
+    if (storedCredId && window.PublicKeyCredential && navigator.credentials && navigator.credentials.get) {
       try {
         const challengeBytes = new Uint8Array(32);
         window.crypto.getRandomValues(challengeBytes);
+        const rawId = Uint8Array.from(atob(storedCredId), c => c.charCodeAt(0));
 
         await navigator.credentials.get({
           publicKey: {
             challenge: challengeBytes,
-            timeout: 60000,
+            allowCredentials: [{ id: rawId, type: 'public-key' }],
+            timeout: 30000,
             userVerification: 'preferred',
           },
         }).catch(() => null);
       } catch (e) {
-        console.log('Biometric prompt trigger:', e);
+        console.log('Biometric passkey prompt handled:', e);
       }
     }
 
