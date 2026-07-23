@@ -666,21 +666,37 @@ export default function FingerprintPage() {
             <form onSubmit={handleRegisterFingerprint} className="space-y-5">
               <div>
                 <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-                  Pilih Murid <span className="text-rose-500">*</span>
+                  Pilih {registrationTargetType === 'STAFF' ? 'Karyawan / Staf' : 'Murid / Siswa'} <span className="text-rose-500">*</span>
                 </label>
-                <select
-                  required
-                  value={selectedStudentId}
-                  onChange={(e) => setSelectedStudentId(e.target.value)}
-                  className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold cursor-pointer"
-                >
-                  <option value="">-- Pilih Murid --</option>
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.namaAnak} ({s.namaOrtu})
-                    </option>
-                  ))}
-                </select>
+                {registrationTargetType === 'STAFF' ? (
+                  <select
+                    required
+                    value={selectedStaffId}
+                    onChange={(e) => setSelectedStaffId(e.target.value)}
+                    className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold cursor-pointer"
+                  >
+                    <option value="">-- Pilih Karyawan / Staf --</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.role?.name || 'Staf'})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select
+                    required
+                    value={selectedStudentId}
+                    onChange={(e) => setSelectedStudentId(e.target.value)}
+                    className="w-full px-4 py-3.5 rounded-2xl kid-input text-base text-slate-800 font-semibold cursor-pointer"
+                  >
+                    <option value="">-- Pilih Murid / Siswa --</option>
+                    {students.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.namaAnak} ({s.namaOrtu})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>
@@ -743,26 +759,42 @@ export default function FingerprintPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {registeredList.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="p-3 font-bold text-slate-800">{item.student?.namaAnak}</td>
-                      <td className="p-3 text-slate-600">{item.fingerIndex}</td>
-                      <td className="p-3">
-                        <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
-                          {item.deviceEmployeeId || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          onClick={() => handleDeleteFingerprint(item.id)}
-                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
-                          title="Hapus Fingerprint"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {registeredList.map((item) => {
+                    const isStaff = !!item.userId || !!item.user || (!item.student && !!item.deviceEmployeeId);
+                    const displayName = item.user?.name || item.student?.namaAnak || (staff.find(st => st.id === item.deviceEmployeeId)?.name) || item.deviceEmployeeId || 'Karyawan / Siswa';
+                    const subInfo = item.user?.role?.name ? item.user.role.name : item.student ? `Ortu: ${item.student.namaOrtu}` : 'Staf';
+
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-bold text-slate-800">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${isStaff ? 'bg-purple-100 text-purple-700 font-extrabold' : 'bg-blue-100 text-blue-700 font-extrabold'}`}>
+                              {isStaff ? '💼 Karyawan' : '🎒 Siswa'}
+                            </span>
+                            <div>
+                              <p className="font-bold text-slate-800 text-xs">{displayName}</p>
+                              <p className="text-[10px] text-slate-400 font-normal">{subInfo}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 text-slate-600 font-medium">{item.fingerIndex}</td>
+                        <td className="p-3">
+                          <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                            {item.deviceEmployeeId || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => handleDeleteFingerprint(item.id)}
+                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                            title="Hapus Fingerprint"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                   {registeredList.length === 0 && (
                     <tr>

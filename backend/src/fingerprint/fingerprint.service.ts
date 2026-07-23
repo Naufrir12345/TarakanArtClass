@@ -34,11 +34,11 @@ export class FingerprintService {
    * Since staff are not stored in the student table, we store the staff identifier
    * in the `deviceEmployeeId` field and leave `studentId` null.
    */
-  async registerStaff(staffId: string, templateData: string, fingerIndex?: string) {
-    // No validation against a staff table for demo purposes; in production you would verify the staff exists.
+  async registerStaff(staffId: string, templateData: string, fingerIndex?: string, deviceEmployeeId?: string) {
     return this.prisma.fingerprintData.create({
       data: {
-        deviceEmployeeId: staffId,
+        userId: staffId,
+        deviceEmployeeId: deviceEmployeeId || staffId,
         templateData,
         fingerIndex: fingerIndex || 'RIGHT_INDEX',
       },
@@ -359,7 +359,16 @@ export class FingerprintService {
             },
           },
         },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: { select: { name: true } },
+          },
+        },
       },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
