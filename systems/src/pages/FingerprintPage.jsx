@@ -143,66 +143,82 @@ export default function FingerprintPage() {
     setSuccess('');
     setScanResult(null);
 
-    setTimeout(async () => {
+    // 1. Synchronously trigger Android / iOS Native Fingerprint Prompt if available
+    if (window.PublicKeyCredential && navigator.credentials && navigator.credentials.get) {
       try {
-        if (targetType === 'STAFF') {
-          // Verify Staff Attendance
-          const res = await api.post('/api/fingerprint/verify-staff', { userId: activeId });
-          setIsScanning(false);
-          setScanResult(res.data);
-          playSuccessChime();
+        const challengeBytes = new Uint8Array(32);
+        window.crypto.getRandomValues(challengeBytes);
 
-          if (res.data.status === 'SUCCESS') {
-            const msg = `Hadir! Terima kasih ${res.data.staff?.name}, presensi masuk staf berhasil dicatat.`;
-            setSuccess(msg);
-            speakText(msg);
-          } else if (res.data.status === 'ALREADY_MARKED') {
-            const msg = `Karyawan ${res.data.staff?.name} sudah presensi masuk hari ini.`;
-            setSuccess(msg);
-            speakText(msg);
-          }
+        await navigator.credentials.get({
+          publicKey: {
+            challenge: challengeBytes,
+            timeout: 60000,
+            userVerification: 'preferred',
+          },
+        }).catch(() => null);
+      } catch (e) {
+        console.log('Biometric prompt trigger:', e);
+      }
+    }
+
+    try {
+      if (targetType === 'STAFF') {
+        // Verify Staff Attendance
+        const res = await api.post('/api/fingerprint/verify-staff', { userId: activeId });
+        setIsScanning(false);
+        setScanResult(res.data);
+        playSuccessChime();
+
+        if (res.data.status === 'SUCCESS') {
+          const msg = `Hadir! Terima kasih ${res.data.staff?.name}, presensi masuk staf berhasil dicatat.`;
+          setSuccess(msg);
+          speakText(msg);
+        } else if (res.data.status === 'ALREADY_MARKED') {
+          const msg = `Karyawan ${res.data.staff?.name} sudah presensi masuk hari ini.`;
+          setSuccess(msg);
+          speakText(msg);
+        }
+      } else {
+        // Verify Student Attendance
+        const fpRes = await api.get(`/api/fingerprint/student/${activeId}`).catch(() => ({ data: [] }));
+        let templateToUse = '';
+
+        if (fpRes.data && fpRes.data.length > 0) {
+          templateToUse = fpRes.data[0].templateData;
         } else {
-          // Verify Student Attendance
-          const fpRes = await api.get(`/api/fingerprint/student/${activeId}`).catch(() => ({ data: [] }));
-          let templateToUse = '';
-
-          if (fpRes.data && fpRes.data.length > 0) {
-            templateToUse = fpRes.data[0].templateData;
-          } else {
-            templateToUse = `FINGERPRINT_TEMPLATE_B64_${activeId.substring(0, 8)}_MOBILE_HP`;
-            await api.post(`/api/fingerprint/register/${activeId}`, {
-              templateData: templateToUse,
-              fingerIndex: 'MOBILE_HP_SCANNER',
-            });
-          }
-
-          const tapRes = await api.post('/api/fingerprint/verify', {
+          templateToUse = `FINGERPRINT_TEMPLATE_B64_${activeId.substring(0, 8)}_MOBILE_HP`;
+          await api.post(`/api/fingerprint/register/${activeId}`, {
             templateData: templateToUse,
+            fingerIndex: 'MOBILE_HP_SCANNER',
           });
-
-          setIsScanning(false);
-          setScanResult(tapRes.data);
-          playSuccessChime();
-
-          if (tapRes.data.status === 'SUCCESS') {
-            const msg = `Hadir! Terima kasih ${tapRes.data.student?.namaAnak}, presensi kelas ${tapRes.data.class?.namaKelas || ''} berhasil dicatat.`;
-            setSuccess(msg);
-            speakText(msg);
-          } else if (tapRes.data.status === 'ALREADY_MARKED') {
-            const msg = `Siswa ${tapRes.data.student?.namaAnak} sudah absen hari ini.`;
-            setSuccess(msg);
-            speakText(msg);
-          }
         }
 
-        fetchData();
-      } catch (err) {
+        const tapRes = await api.post('/api/fingerprint/verify', {
+          templateData: templateToUse,
+        });
+
         setIsScanning(false);
-        const errStr = err.response?.data?.message || err.message || 'Gagal memverifikasi sidik jari HP.';
-        setError(errStr);
-        speakText('Gagal verifikasi sidik jari');
+        setScanResult(tapRes.data);
+        playSuccessChime();
+
+        if (tapRes.data.status === 'SUCCESS') {
+          const msg = `Hadir! Terima kasih ${tapRes.data.student?.namaAnak}, presensi kelas ${tapRes.data.class?.namaKelas || ''} berhasil dicatat.`;
+          setSuccess(msg);
+          speakText(msg);
+        } else if (tapRes.data.status === 'ALREADY_MARKED') {
+          const msg = `Siswa ${tapRes.data.student?.namaAnak} sudah absen hari ini.`;
+          setSuccess(msg);
+          speakText(msg);
+        }
       }
-    }, 800);
+
+      fetchData();
+    } catch (err) {
+      setIsScanning(false);
+      const errStr = err.response?.data?.message || err.message || 'Gagal memverifikasi sidik jari HP.';
+      setError(errStr);
+      speakText('Gagal verifikasi sidik jari');
+    }
   };
 
   // Hardware Push API Simulation (Solution / ZKTeco)
