@@ -429,20 +429,44 @@ export class FingerprintService {
       };
     }
 
-    const firstClass = await this.prisma.class.findFirst();
+    // Ensure we have a valid studentId and classId for Attendance schema constraint
+    let systemStudent = await this.prisma.student.findFirst();
+    if (!systemStudent) {
+      systemStudent = await this.prisma.student.create({
+        data: {
+          namaAnak: 'Sistem Karyawan',
+          umur: 0,
+          namaOrtu: 'Internal System',
+          noHpOrtu: '0000000000',
+          emailOrtu: 'system@manufindo.com',
+        },
+      });
+    }
 
-    const attendanceData: any = {
-      status: 'PRESENT',
-      notes: `Presensi Karyawan:${user.id} - ${user.name} (${user.role?.name || 'Staf'}) via Biometrik HP`,
-      date: today,
-    };
-
-    if (firstClass) {
-      attendanceData.classId = firstClass.id;
+    let systemClass = await this.prisma.class.findFirst();
+    if (!systemClass) {
+      systemClass = await this.prisma.class.create({
+        data: {
+          namaKelas: 'Presensi Karyawan',
+          tipe: 'STAFF',
+          harga: 0,
+          description: 'Kelas sistem presensi staf',
+        },
+      });
     }
 
     const attendance = await this.prisma.attendance.create({
-      data: attendanceData,
+      data: {
+        studentId: systemStudent.id,
+        classId: systemClass.id,
+        status: 'PRESENT',
+        notes: `Presensi Karyawan:${user.id} - ${user.name} (${user.role?.name || 'Staf'}) via Biometrik HP`,
+        date: today,
+      },
+      include: {
+        student: true,
+        class: true,
+      },
     });
 
     return {
