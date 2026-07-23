@@ -1,52 +1,134 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AnalyticsQueryDto } from './dto/analytics-query.dto';
 
 @Injectable()
 export class AnalyticsService {
   constructor(private prisma: PrismaService) {}
 
-  async getRevenue() {
-    // Fetch all incomes and expenses
+  async getRevenue(query?: AnalyticsQueryDto) {
+    let start: Date;
+    let end: Date;
+
+    const now = new Date();
+
+    if (query?.startDate && query?.endDate) {
+      start = new Date(query.startDate);
+      end = new Date(query.endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new BadRequestException('Format tanggal tidak valid (YYYY-MM-DD)');
+      }
+
+      if (start > end) {
+        throw new BadRequestException('Tanggal mulai tidak boleh lebih besar dari tanggal selesai');
+      }
+
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays > 32) {
+        throw new BadRequestException('Rentang tanggal maksimal adalah 1 bulan kalender (31 hari)');
+      }
+    } else {
+      // Default: current month (1st of month to today/end of month)
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+
+    // Fetch incomes and expenses within range
     const [incomes, expenses] = await Promise.all([
-      this.prisma.income.findMany(),
-      this.prisma.expense.findMany(),
+      this.prisma.income.findMany({
+        where: {
+          date: {
+            gte: start,
+            lte: end,
+          },
+        },
+      }),
+      this.prisma.expense.findMany({
+        where: {
+          date: {
+            gte: start,
+            lte: end,
+          },
+        },
+      }),
     ]);
 
-    // Group by month-year
-    const monthlyData: { [key: string]: { income: number; expense: number } } = {};
+    // Build map for each day in range
+    const dailyData: { [dateStr: string]: { dateStr: string; displayLabel: string; income: number; expense: number; profit: number } } = {};
+
+    const curr = new Date(start);
+    while (curr <= end) {
+      const year = curr.getFullYear();
+      const month = String(curr.getMonth() + 1).padStart(2, '0');
+      const day = String(curr.getDate()).padStart(2, '0');
+      const key = `${year}-${month}-${day}`;
+
+      const monthsIndo = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const displayLabel = `${day} ${monthsIndo[curr.getMonth()]}`;
+
+      dailyData[key] = {
+        dateStr: key,
+        displayLabel,
+        income: 0,
+        expense: 0,
+        profit: 0,
+      };
+
+      curr.setDate(curr.getDate() + 1);
+    }
 
     incomes.forEach((inc) => {
-      const monthYear = this.getMonthYearKey(new Date(inc.date));
-      if (!monthlyData[monthYear]) monthlyData[monthYear] = { income: 0, expense: 0 };
-      monthlyData[monthYear].income += Number(inc.amount);
+      const incDate = new Date(inc.date);
+      const year = incDate.getFullYear();
+      const month = String(incDate.getMonth() + 1).padStart(2, '0');
+      const day = String(incDate.getDate()).padStart(2, '0');
+      const key = `${year}-${month}-${day}`;
+
+      if (dailyData[key]) {
+        dailyData[key].income += Number(inc.amount);
+      }
     });
 
     expenses.forEach((exp) => {
-      const monthYear = this.getMonthYearKey(new Date(exp.date));
-      if (!monthlyData[monthYear]) monthlyData[monthYear] = { income: 0, expense: 0 };
-      monthlyData[monthYear].expense += Number(exp.amount);
+      const expDate = new Date(exp.date);
+      const year = expDate.getFullYear();
+      const month = String(expDate.getMonth() + 1).padStart(2, '0');
+      const day = String(expDate.getDate()).padStart(2, '0');
+      const key = `${year}-${month}-${day}`;
+
+      if (dailyData[key]) {
+        dailyData[key].expense += Number(exp.amount);
+      }
     });
 
-    // Format as list and sort chronologically
-    const revenueList = Object.keys(monthlyData).map((key) => {
-      const profit = monthlyData[key].income - monthlyData[key].expense;
-      return {
-        period: key, // "YYYY-MM"
-        income: monthlyData[key].income,
-        expense: monthlyData[key].expense,
-        profit,
-      };
-    });
+    const dailyTrend = Object.values(dailyData).map((d) => ({
+      period: d.displayLabel,
+      date: d.dateStr,
+      income: d.income,
+      expense: d.expense,
+      profit: d.income - d.expense,
+    }));
 
-    revenueList.sort((a, b) => a.period.localeCompare(b.period));
+    dailyTrend.sort((a, b) => a.date.localeCompare(b.date));
 
-    // Calculate YoY if there's enough data
-    // For simplicity, returns last 12 periods and computes current vs prior year if present
+    const totalIncome = incomes.reduce((sum, item) => sum + Number(item.amount), 0);
+    const totalExpense = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
+
     return {
-      monthlyTrend: revenueList,
+      monthlyTrend: dailyTrend,
       summary: {
-        totalIncome: incomes.reduce((sum, item) => sum + Number(item.amount), 0),
-        totalExpense: expenses.reduce((sum, item) => sum + Number(item.amount), 0),
+        totalIncome,
+        totalExpense,
+        profit: totalIncome - totalExpense,
+      },
+      range: {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
       },
     };
   }
@@ -240,9 +322,9 @@ export class AnalyticsService {
     };
   }
 
-  async getDashboardSummary() {
+  async getDashboardSummary(query?: AnalyticsQueryDto) {
     const [revenue, students, classes, payments, forecast] = await Promise.all([
-      this.getRevenue(),
+      this.getRevenue(query),
       this.getStudents(),
       this.getClasses(),
       this.getPayments(),
@@ -255,6 +337,10 @@ export class AnalyticsService {
       classes,
       payments,
       forecast,
+      totalPendapatan: revenue.summary.totalIncome,
+      totalPengeluaran: revenue.summary.totalExpense,
+      monthlyTrend: revenue.monthlyTrend,
+      range: revenue.range,
     };
   }
 

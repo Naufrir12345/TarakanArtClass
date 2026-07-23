@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   DollarSign, TrendingUp, TrendingDown, Users, Target, BookOpen,
-  UserCheck, Activity, Award, Briefcase, Percent
+  UserCheck, Activity, Award, Briefcase, Percent, Calendar, Filter, AlertCircle
 } from 'lucide-react';
 
 const KPICard = ({ title, value, subtitle, icon: Icon, gradient, textColor = 'text-slate-800' }) => (
@@ -45,14 +45,37 @@ const formatRupiah = (num) => {
 const CHART_COLORS = ['#6366f1', '#06b6d4', '#f59e0b', '#ec4899', '#8b5cf6', '#10b981'];
 
 export default function Analytics() {
+  const formatDateStr = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getInitialMonthRange = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return {
+      start: formatDateStr(start),
+      end: formatDateStr(end),
+    };
+  };
+
+  const initialRange = getInitialMonthRange();
+  const [startDate, setStartDate] = useState(initialRange.start);
+  const [endDate, setEndDate] = useState(initialRange.end);
+  const [dateError, setDateError] = useState('');
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    api.get('/api/analytics')
+  const fetchAnalytics = (sDate, eDate) => {
+    setLoading(true);
+    setError(null);
+    api.get(`/api/analytics?startDate=${sDate}&endDate=${eDate}`)
       .then(res => {
-        console.log('Analytics data:', res.data);
         setData(res.data);
         setLoading(false);
       })
@@ -61,9 +84,56 @@ export default function Analytics() {
         setError(err.response?.data?.message || err.message);
         setLoading(false);
       });
-  }, []);
+  };
 
-  if (loading) {
+  useEffect(() => {
+    fetchAnalytics(startDate, endDate);
+  }, [startDate, endDate]);
+
+  const validateAndUpdateDates = (newStart, newEnd) => {
+    const d1 = new Date(newStart);
+    const d2 = new Date(newEnd);
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return;
+
+    if (d1 > d2) {
+      setDateError('Tanggal mulai tidak boleh melebihi tanggal selesai.');
+      return;
+    }
+
+    const diffDays = Math.ceil(Math.abs(d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+    if (diffDays > 32) {
+      setDateError('Rentang tanggal maksimal adalah 1 bulan kalender (31 hari).');
+      return;
+    }
+
+    setDateError('');
+    setStartDate(newStart);
+    setEndDate(newEnd);
+  };
+
+  const handleStartDateChange = (val) => {
+    validateAndUpdateDates(val, endDate);
+  };
+
+  const handleEndDateChange = (val) => {
+    validateAndUpdateDates(startDate, val);
+  };
+
+  const applyPreset = (presetType) => {
+    const now = new Date();
+    if (presetType === 'THIS_MONTH') {
+      const range = getInitialMonthRange();
+      validateAndUpdateDates(range.start, range.end);
+    } else if (presetType === 'LAST_30_DAYS') {
+      const past = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
+      validateAndUpdateDates(formatDateStr(past), formatDateStr(now));
+    } else if (presetType === 'LAST_7_DAYS') {
+      const past = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+      validateAndUpdateDates(formatDateStr(past), formatDateStr(now));
+    }
+  };
+
+  if (loading && !data) {
     return (
       <div className="p-8 bg-slate-50/50 min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -74,7 +144,7 @@ export default function Analytics() {
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <div className="p-8 bg-slate-50/50 min-h-screen flex items-center justify-center">
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-red-50 text-center max-w-md">
@@ -247,26 +317,81 @@ export default function Analytics() {
       {/* 3. Charts Area */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Trend Area Chart */}
-        <div className="bg-white p-7 rounded-3xl border border-slate-100/90 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white p-7 rounded-3xl border border-slate-100/90 shadow-sm hover:shadow-md transition-shadow lg:col-span-2">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
             <div>
-              <h3 className="font-bold text-lg text-slate-800">Tren Finansial Bulanan</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Analisis pendapatan, pengeluaran & profit margin</p>
+              <h3 className="font-bold text-xl text-slate-800 flex items-center gap-2">
+                <TrendingUp className="w-6 h-6 text-emerald-600" />
+                Tren Finansial Harian (Naik Turun Transaksi)
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">Analisis pendapatan, pengeluaran & profit harian (Filter bebas, maks 1 bulan kalender / 31 hari)</p>
             </div>
-            <div className="px-3 py-1.5 rounded-xl bg-slate-50 text-[10px] font-bold text-slate-500 tracking-wider uppercase border border-slate-100">
-              Monthly View
+
+            {/* Filter Date Controls */}
+            <div className="flex flex-wrap items-center gap-3 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-indigo-600 ml-1" />
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                />
+                <span className="text-xs text-slate-400 font-bold">s/d</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => handleEndDateChange(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="h-4 w-[1px] bg-slate-300 hidden sm:block" />
+
+              {/* Preset Buttons */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => applyPreset('THIS_MONTH')}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
+                >
+                  Bulan Ini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('LAST_30_DAYS')}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors cursor-pointer"
+                >
+                  30 Hari
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('LAST_7_DAYS')}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors cursor-pointer"
+                >
+                  7 Hari
+                </button>
+              </div>
             </div>
           </div>
+
+          {dateError && (
+            <div className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 flex items-center gap-2 animate-shake">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{dateError}</span>
+            </div>
+          )}
+
           {monthlyChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={360}>
               <AreaChart data={monthlyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
+                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.25} />
                     <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
@@ -284,13 +409,13 @@ export default function Analytics() {
           ) : (
             <div className="h-[320px] flex flex-col items-center justify-center text-slate-400">
               <Briefcase className="w-12 h-12 text-slate-200 mb-3" />
-              <p className="text-sm font-medium">Belum ada transaksi keuangan yang tercatat</p>
+              <p className="text-sm font-medium">Belum ada transaksi keuangan yang tercatat di rentang tanggal ini</p>
             </div>
           )}
         </div>
 
         {/* Class Occupancy / Popularity Chart */}
-        <div className="bg-white p-7 rounded-3xl border border-slate-100/90 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-white p-7 rounded-3xl border border-slate-100/90 shadow-sm hover:shadow-md transition-shadow lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="font-bold text-lg text-slate-800">Popularitas Kelas</h3>
