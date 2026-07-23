@@ -262,64 +262,73 @@ export class AnalyticsService {
   }
 
   async getForecast() {
-    const { monthlyTrend } = await this.getRevenue();
+    try {
+      const { monthlyTrend } = await this.getRevenue();
 
-    // Need at least 2 points to perform linear regression
-    if (monthlyTrend.length < 2) {
-      return {
-        forecast: [],
-        message: 'Data pendapatan kurang untuk melakukan peramalan (minimal 2 bulan data).',
-      };
-    }
-
-    // Prepare data for Linear Regression (y = mx + c)
-    const n = monthlyTrend.length;
-    const x = Array.from({ length: n }, (_, i) => i); // Month index 0, 1, 2...
-    const y = monthlyTrend.map((m) => m.profit);
-
-    let sumX = 0;
-    let sumY = 0;
-    let sumXY = 0;
-    let sumXX = 0;
-
-    for (let i = 0; i < n; i++) {
-      sumX += x[i];
-      sumY += y[i];
-      sumXY += x[i] * y[i];
-      sumXX += x[i] * x[i];
-    }
-
-    // slope m and intercept c
-    const m = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-    const c = (sumY - m * sumX) / n;
-
-    // Forecast next 3 months
-    const forecast: { period: string; profit: number }[] = [];
-    const lastPeriod = monthlyTrend[n - 1].period;
-    let [year, month] = lastPeriod.split('-').map(Number);
-
-    for (let i = 1; i <= 3; i++) {
-      const forecastX = n - 1 + i;
-      const forecastProfit = m * forecastX + c;
-
-      // Increment month
-      month++;
-      if (month > 12) {
-        month = 1;
-        year++;
+      // Need at least 2 points to perform linear regression
+      if (!monthlyTrend || monthlyTrend.length < 2) {
+        return {
+          forecast: [],
+          message: 'Data pendapatan kurang untuk melakukan peramalan (minimal 2 bulan data).',
+        };
       }
 
-      const nextPeriod = `${year}-${String(month).padStart(2, '0')}`;
-      forecast.push({
-        period: nextPeriod,
-        profit: Math.max(0, Math.round(forecastProfit)), // Floor to 0 if negative profit
-      });
-    }
+      // Prepare data for Linear Regression (y = mx + c)
+      const n = monthlyTrend.length;
+      const x = Array.from({ length: n }, (_, i) => i); // Month index 0, 1, 2...
+      const y = monthlyTrend.map((m) => m.profit);
 
-    return {
-      forecast,
-      equation: `y = ${m.toFixed(2)}x + ${c.toFixed(2)}`,
-    };
+      let sumX = 0;
+      let sumY = 0;
+      let sumXY = 0;
+      let sumXX = 0;
+
+      for (let i = 0; i < n; i++) {
+        sumX += x[i];
+        sumY += y[i];
+        sumXY += x[i] * y[i];
+        sumXX += x[i] * x[i];
+      }
+
+      const denom = (n * sumXX - sumX * sumX);
+      if (denom === 0) {
+        return { forecast: [], equation: 'y = 0' };
+      }
+
+      // slope m and intercept c
+      const m = (n * sumXY - sumX * sumY) / denom;
+      const c = (sumY - m * sumX) / n;
+
+      // Forecast next 3 days safely
+      const forecast: { period: string; profit: number }[] = [];
+      const lastItem = monthlyTrend[n - 1];
+      const baseDate = lastItem?.date ? new Date(lastItem.date) : new Date();
+
+      for (let i = 1; i <= 3; i++) {
+        const forecastX = n - 1 + i;
+        const forecastProfit = m * forecastX + c;
+
+        const nextDate = new Date(baseDate);
+        nextDate.setDate(nextDate.getDate() + i);
+        const nextPeriod = nextDate.toISOString().split('T')[0];
+
+        forecast.push({
+          period: nextPeriod,
+          profit: Math.max(0, Math.round(forecastProfit)), // Floor to 0 if negative profit
+        });
+      }
+
+      return {
+        forecast,
+        equation: `y = ${m.toFixed(2)}x + ${c.toFixed(2)}`,
+      };
+    } catch (err) {
+      console.error('Forecast Calculation Error:', err);
+      return {
+        forecast: [],
+        message: 'Kalkulasi peramalan belum dapat dilakukan.',
+      };
+    }
   }
 
   async getDashboardSummary(query?: AnalyticsQueryDto) {
