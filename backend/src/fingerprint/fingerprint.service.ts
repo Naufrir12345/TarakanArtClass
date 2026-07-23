@@ -7,6 +7,10 @@ export class FingerprintService {
 
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Register a fingerprint template for a student.
+   * Throws NotFoundException if the student does not exist.
+   */
   async register(studentId: string, templateData: string, fingerIndex?: string) {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
@@ -15,10 +19,26 @@ export class FingerprintService {
       throw new NotFoundException('Siswa tidak ditemukan');
     }
 
-    // Save or update template
+    // Save or update template for a student
     return this.prisma.fingerprintData.create({
       data: {
         studentId,
+        templateData,
+        fingerIndex: fingerIndex || 'RIGHT_INDEX',
+      },
+    });
+  }
+
+  /**
+   * Register a fingerprint template for a staff member (karyawan).
+   * Since staff are not stored in the student table, we store the staff identifier
+   * in the `deviceEmployeeId` field and leave `studentId` null.
+   */
+  async registerStaff(staffId: string, templateData: string, fingerIndex?: string) {
+    // No validation against a staff table for demo purposes; in production you would verify the staff exists.
+    return this.prisma.fingerprintData.create({
+      data: {
+        deviceEmployeeId: staffId,
         templateData,
         fingerIndex: fingerIndex || 'RIGHT_INDEX',
       },

@@ -18,7 +18,9 @@ export default function FingerprintPage() {
   const [success, setSuccess] = useState('');
 
   // Register Form State
+  const [registrationTargetType, setRegistrationTargetType] = useState('STUDENT'); // 'STUDENT' | 'STAFF'
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [selectedStaffId, setSelectedStaffId] = useState('');
   const [fingerIndex, setFingerIndex] = useState('RIGHT_INDEX');
   const [deviceEmployeeIdInput, setDeviceEmployeeIdInput] = useState('');
 
@@ -107,22 +109,26 @@ export default function FingerprintPage() {
     }
   };
 
-  // Register Fingerprint for a Student
+  // Register Fingerprint for Student or Staff
   const handleRegisterFingerprint = async (e) => {
     e.preventDefault();
-    if (!selectedStudentId) return;
+    const targetId = registrationTargetType === 'STAFF' ? selectedStaffId : selectedStudentId;
+    if (!targetId) return;
 
     // Generate template
-    const simulatedB64 = `FINGERPRINT_TEMPLATE_B64_${selectedStudentId.substring(0, 8)}_${Math.random().toString(36).substring(2, 10)}`;
+    const simulatedB64 = `FINGERPRINT_TEMPLATE_B64_${targetId.substring(0, 8)}_${Math.random().toString(36).substring(2, 10)}`;
 
     try {
-      await api.post(`/api/fingerprint/register/${selectedStudentId}`, {
+      const endpoint = registrationTargetType === 'STAFF' ?
+        `/api/fingerprint/register-staff/${targetId}` :
+        `/api/fingerprint/register/${targetId}`;
+      await api.post(endpoint, {
         templateData: simulatedB64,
         fingerIndex,
         deviceEmployeeId: deviceEmployeeIdInput || undefined,
       });
       setSuccess('Sidik jari berhasil diregistrasi ke sistem!');
-      setSelectedStudentId('');
+      if (registrationTargetType === 'STAFF') setSelectedStaffId(''); else setSelectedStudentId('');
       setDeviceEmployeeIdInput('');
       fetchData();
     } catch (err) {
@@ -589,6 +595,38 @@ export default function FingerprintPage() {
                 <h3 className="font-bold text-lg text-slate-800">Registrasi Sidik Jari Murid / Staf</h3>
                 <p className="text-xs text-slate-400">Daftarkan pola jari dan hubungkan ke ID Mesin Hardware</p>
               </div>
+            </div>
+
+            {/* Target Type Toggle for Registration */}
+            <div className="flex justify-center gap-2 mt-4">
+              <button
+                onClick={() => {
+                  setRegistrationTargetType('STAFF');
+                  setSelectedStaffId('');
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                  registrationTargetType === 'STAFF'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Briefcase size={16} />
+                <span>Karyawan / Staf</span>
+              </button>
+              <button
+                onClick={() => {
+                  setRegistrationTargetType('STUDENT');
+                  setSelectedStudentId('');
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                  registrationTargetType === 'STUDENT'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Users size={16} />
+                <span>Murid / Siswa</span>
+              </button>
             </div>
 
             <form onSubmit={handleRegisterFingerprint} className="space-y-5">

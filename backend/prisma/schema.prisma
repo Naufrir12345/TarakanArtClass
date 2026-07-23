@@ -23,6 +23,7 @@ model User {
   salary    Float      @default(0)
   createdAt DateTime   @default(now())
   logs      AuditLog[]
+  fingerprints FingerprintData[]
 }
 
 model Role {
@@ -550,17 +551,20 @@ model ParentMessage {
 // 14. MODULE: FINGERPRINT ATTENDANCE
 // ============================================
 model FingerprintData {
-  id            String   @id @default(uuid())
-  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId     String
-  templateData  String   // Fingerprint template (base64 encoded)
-  fingerIndex   String   @default("RIGHT_INDEX") // Jari mana
+  id               String   @id @default(uuid())
+  student          Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId        String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String?
+  templateData     String   // Fingerprint template (base64 encoded)
+  fingerIndex      String   @default("RIGHT_INDEX") // Jari mana
   deviceEmployeeId String? // ID/No. Karyawan di mesin fingerprint (misal: "1001")
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([studentId])
+  @@index([userId])
   @@index([deviceEmployeeId])
 }
 

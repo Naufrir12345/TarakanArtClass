@@ -63,6 +63,16 @@ export class FingerprintController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('register-staff/:staffId')
+  registerStaff(
+    @Param('staffId') staffId: string,
+    @Body('templateData') templateData: string,
+    @Body('fingerIndex') fingerIndex?: string,
+  ) {
+    return this.fingerprintService.registerStaff(staffId, templateData, fingerIndex);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('registered-list')
   getRegisteredList() {
     return this.fingerprintService.getAllRegisteredFingerprints();
