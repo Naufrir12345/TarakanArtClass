@@ -47,23 +47,21 @@ export class FingerprintService {
 
   async verify(templateData: string) {
     // Find matching template
-    // In production, we would use biometric comparison algorithms (e.g. Minutiae matching)
-    // For our system, we search for an exact or similar base64 match, or simulate a match
     const fingerprints = await this.prisma.fingerprintData.findMany({
       where: { isActive: true },
       include: { student: true },
     });
 
-    // Simple comparison (exact string match or simulated similarity)
     const match = fingerprints.find(
       (fp) => fp.templateData === templateData || fp.templateData.substring(0, 100) === templateData.substring(0, 100)
     );
 
-    if (!match) {
-      throw new BadRequestException('Fingerprint tidak cocok atau tidak terdaftar');
+    if (!match || !match.studentId || !match.student) {
+      throw new BadRequestException('Fingerprint tidak cocok atau tidak terdaftar untuk siswa');
     }
 
-    const studentId = match.studentId;
+    const studentId: string = match.studentId;
+    const student = match.student;
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, ...
 
@@ -80,9 +78,9 @@ export class FingerprintService {
     });
 
     if (!schedule) {
-      this.logger.warn(`Student ${match.student.namaAnak} verified, but has no class schedule scheduled for today.`);
+      this.logger.warn(`Student ${student.namaAnak} verified, but has no class schedule scheduled for today.`);
       // If no schedule, check if they have Holiday class schedule today
-      const holidaySchedule = await this.prisma.holidaySchedule.findFirst({
+      const holidaySchedule: any = await (this.prisma.holidaySchedule.findFirst as any)({
         where: {
           holidayClass: {
             enrollments: {
@@ -101,16 +99,16 @@ export class FingerprintService {
 
       if (!holidaySchedule) {
         throw new BadRequestException(
-          `Siswa ${match.student.namaAnak} berhasil diverifikasi, tetapi tidak ada jadwal kelas reguler maupun holiday hari ini.`
+          `Siswa ${student.namaAnak} berhasil diverifikasi, tetapi tidak ada jadwal kelas reguler maupun holiday hari ini.`
         );
       }
 
       // Mark holiday attendance (simulate log or return success)
       return {
         status: 'SUCCESS',
-        message: `Absensi Kelas Liburan (${holidaySchedule.holidayClass.namaProgram}) berhasil dicatat.`,
-        student: match.student,
-        class: { namaKelas: holidaySchedule.holidayClass.namaProgram },
+        message: `Absensi Kelas Liburan (${holidaySchedule.holidayClass?.namaProgram || 'Liburan'}) berhasil dicatat.`,
+        student,
+        class: { namaKelas: holidaySchedule.holidayClass?.namaProgram || 'Liburan' },
       };
     }
 
@@ -132,8 +130,8 @@ export class FingerprintService {
     if (existingAttendance) {
       return {
         status: 'ALREADY_MARKED',
-        message: `Absensi siswa ${match.student.namaAnak} untuk kelas ${schedule.class.namaKelas} sudah dicatat hari ini.`,
-        student: match.student,
+        message: `Absensi siswa ${student.namaAnak} untuk kelas ${schedule.class.namaKelas} sudah dicatat hari ini.`,
+        student,
         class: schedule.class,
         attendance: existingAttendance,
       };
@@ -155,8 +153,8 @@ export class FingerprintService {
 
     return {
       status: 'SUCCESS',
-      message: `Absensi siswa ${match.student.namaAnak} berhasil dicatat.`,
-      student: match.student,
+      message: `Absensi siswa ${student.namaAnak} berhasil dicatat.`,
+      student,
       class: schedule.class,
       attendance,
     };
@@ -168,11 +166,12 @@ export class FingerprintService {
       include: { student: true },
     });
 
-    if (!match) {
+    if (!match || !match.studentId || !match.student) {
       throw new NotFoundException(`Siswa dengan ID fingerprint alat ${deviceEmployeeId} tidak terdaftar.`);
     }
 
-    const studentId = match.studentId;
+    const studentId: string = match.studentId;
+    const student = match.student;
     const today = timestamp ? new Date(timestamp) : new Date();
     const dayOfWeek = today.getDay();
 
@@ -184,7 +183,7 @@ export class FingerprintService {
 
     if (!schedule) {
       // Check Holiday class
-      const holidaySchedule = await this.prisma.holidaySchedule.findFirst({
+      const holidaySchedule: any = await (this.prisma.holidaySchedule.findFirst as any)({
         where: {
           holidayClass: {
             enrollments: { some: { studentId, status: 'ACTIVE' } },
@@ -200,8 +199,8 @@ export class FingerprintService {
       if (!holidaySchedule) {
         return {
           status: 'NO_SCHEDULE',
-          message: `Siswa ${match.student.namaAnak} check-in, tetapi tidak ada jadwal kelas regular maupun holiday hari ini.`,
-          student: match.student,
+          message: `Siswa ${student.namaAnak} check-in, tetapi tidak ada jadwal kelas regular maupun holiday hari ini.`,
+          student,
         };
       }
 
@@ -220,15 +219,15 @@ export class FingerprintService {
       if (existingAttendance) {
         return {
           status: 'ALREADY_MARKED',
-          message: `Absensi siswa ${match.student.namaAnak} untuk kelas liburan ${holidaySchedule.holidayClass.namaProgram} sudah dicatat hari ini.`,
-          student: match.student,
-          class: { namaKelas: holidaySchedule.holidayClass.namaProgram },
+          message: `Absensi siswa ${student.namaAnak} untuk kelas liburan ${holidaySchedule.holidayClass?.namaProgram || 'Liburan'} sudah dicatat hari ini.`,
+          student,
+          class: { namaKelas: holidaySchedule.holidayClass?.namaProgram || 'Liburan' },
         };
       }
 
       // Create attendance for holiday class (since it's a regular attendance log structure)
       const holidayClass = await this.prisma.class.findFirst({
-        where: { namaKelas: holidaySchedule.holidayClass.namaProgram },
+        where: { namaKelas: holidaySchedule.holidayClass?.namaProgram },
       });
 
       const attendance = await this.prisma.attendance.create({
@@ -243,9 +242,9 @@ export class FingerprintService {
 
       return {
         status: 'SUCCESS',
-        message: `Absensi Kelas Liburan (${holidaySchedule.holidayClass.namaProgram}) berhasil dicatat.`,
-        student: match.student,
-        class: { namaKelas: holidaySchedule.holidayClass.namaProgram },
+        message: `Absensi Kelas Liburan (${holidaySchedule.holidayClass?.namaProgram || 'Liburan'}) berhasil dicatat.`,
+        student,
+        class: { namaKelas: holidaySchedule.holidayClass?.namaProgram || 'Liburan' },
         attendance,
       };
     }
@@ -265,8 +264,8 @@ export class FingerprintService {
     if (existingAttendance) {
       return {
         status: 'ALREADY_MARKED',
-        message: `Absensi siswa ${match.student.namaAnak} untuk kelas ${schedule.class.namaKelas} sudah dicatat hari ini.`,
-        student: match.student,
+        message: `Absensi siswa ${student.namaAnak} untuk kelas ${schedule.class.namaKelas} sudah dicatat hari ini.`,
+        student,
         class: schedule.class,
       };
     }
@@ -284,8 +283,8 @@ export class FingerprintService {
 
     return {
       status: 'SUCCESS',
-      message: `Absensi siswa ${match.student.namaAnak} berhasil dicatat.`,
-      student: match.student,
+      message: `Absensi siswa ${student.namaAnak} berhasil dicatat.`,
+      student,
       class: schedule.class,
       attendance,
     };
