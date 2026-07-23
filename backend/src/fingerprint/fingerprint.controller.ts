@@ -52,6 +52,12 @@ export class FingerprintController {
     );
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('registered-list')
+  getRegisteredList() {
+    return this.fingerprintService.getAllRegisteredFingerprints();
+  }
+
   // Bulk CSV importing for offline logs transfer
   @UseGuards(JwtAuthGuard)
   @Post('import-csv')

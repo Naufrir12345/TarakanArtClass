@@ -327,4 +327,20 @@ export class FingerprintService {
       },
     });
   }
+
+  async getAllRegisteredFingerprints() {
+    return this.prisma.fingerprintData.findMany({
+      where: { isActive: true },
+      include: {
+        student: {
+          include: {
+            schedules: {
+              where: { status: 'ACTIVE' },
+              include: { class: true },
+            },
+          },
+        },
+      },
+    });
+  }
 }
